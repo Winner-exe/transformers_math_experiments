@@ -48,7 +48,7 @@ def get_parser():
     parser.add_argument('--n-embd', type=int, default=64, help="number of feature channels in the model")
     parser.add_argument('--n-embd2', type=int, default=32, help="number of feature channels elsewhere in the model")
     # optimization
-    parser.add_argument('--batch-size', '-b', type=int, default=32, help="batch size during optimization")
+    parser.add_argument('--batch-size', '-b', type=int, default=64, help="batch size during optimization")
     parser.add_argument('--learning-rate', '-l', type=float, default=5e-4, help="learning rate")
     parser.add_argument('--weight-decay', '-w', type=float, default=0.01, help="weight decay")
     # evaluation against known "good sequences"
@@ -95,8 +95,8 @@ def tokenize(input_file_path, n_tokens):
     
         trainer = BpeTrainer(vocab_size=n_tokens)
 
-        source_file_path = args.dump_path+'/search_output_1.txt'
-        destination_file_path = args.dump_path+"/temp.txt"
+        source_file_path = os.path.join(args.dump_path, 'search_output_1.txt')
+        destination_file_path = os.path.join(args.dump_path, "temp.txt")
 
         logger.info(f'Created {destination_file_path} and training tokenizer...')
         # Reading the first 100,000 lines from the source file and training the tokenizer on them
@@ -250,6 +250,9 @@ def write_samples(num=10, new_file=False, use_logger=False):
 
 
 if __name__ == '__main__':
+    torch.cuda.empty_cache()
+    torch.cuda.memory_summary()
+
     parser = get_parser()
     args = parser.parse_args()
     init_distributed_mode(args)
@@ -271,14 +274,14 @@ if __name__ == '__main__':
 
     # init datasets
     for i in range(1,args.max_epochs):
-        if not os.path.isfile(f"{args.dump_path}/search_output_{i}-tokenized.txt"):
+        if not os.path.isfile(os.path.join(args.dump_path, f"search_output_{i}-tokenized.txt")):
             break
     initial_gen = i-1
     if initial_gen == 0:
         os.environ["JULIA_NUM_THREADS"] = str(args.nb_threads)  # Set the environment variable
         logger.info(f"JULIA_NUM_THREADS is set to {os.environ['JULIA_NUM_THREADS']}")
         subprocess.run(["julia","search_fc.jl", args.dump_path, str(args.nb_local_searches), str(args.num_initial_empty_objects), str(args.final_database_size), str(args.target_db_size)])
-        tokenize(f"{args.dump_path}/search_output_1.txt", args.n_tokens)
+        tokenize(os.path.join(args.dump_path, "search_output_1.txt"), args.n_tokens)
         initial_gen = 1
     
     logger.info(f"initializing at generation: {initial_gen}")
@@ -393,7 +396,7 @@ if __name__ == '__main__':
         tot_max = 0
         out_file = args.dump_path + "/out.txt"
         in_file = args.dump_path + f"/search_output_{generation}-tokenized.txt"
-        #infilz = f"{args.dump_path}/search_output_{generation}.txt"
+        #infilz = f"{args.dump_path}\\search_output_{generation}.txt"
         with open(in_file, 'r') as f:
             data = f.read()
         words = data.splitlines()
@@ -402,7 +405,7 @@ if __name__ == '__main__':
                 file.write(word)
                 file.write("\n")
         while sample_batch_size < todo:
-            if todo % 50000 ==0 : 
+            if todo % 1000 ==0 :
                 logger.info(f'{todo} samples remaining')
             n, sm, mx = write_samples(num=sample_batch_size)
             tot_n+=n
@@ -432,7 +435,7 @@ if __name__ == '__main__':
 
         
         logger.info("tokenizing")
-        tokenize(f"{args.dump_path}/search_output_{generation+1}.txt", args.n_tokens)
+        tokenize(f"{args.dump_path}\\search_output_{generation+1}.txt", args.n_tokens)
         input_file = args.dump_path + f"/search_output_{generation+1}-tokenized.txt"
         train_dataset, test_dataset = create_datasets(input_file)
         
