@@ -48,7 +48,7 @@ def get_parser():
     parser.add_argument('--n-embd', type=int, default=64, help="number of feature channels in the model")
     parser.add_argument('--n-embd2', type=int, default=32, help="number of feature channels elsewhere in the model")
     # optimization
-    parser.add_argument('--batch-size', '-b', type=int, default=64, help="batch size during optimization")
+    parser.add_argument('--batch-size', '-b', type=int, default=32, help="batch size during optimization")
     parser.add_argument('--learning-rate', '-l', type=float, default=5e-4, help="learning rate")
     parser.add_argument('--weight-decay', '-w', type=float, default=0.01, help="weight decay")
     # evaluation against known "good sequences"
@@ -250,9 +250,6 @@ def write_samples(num=10, new_file=False, use_logger=False):
 
 
 if __name__ == '__main__':
-    torch.cuda.empty_cache()
-    torch.cuda.memory_summary()
-
     parser = get_parser()
     args = parser.parse_args()
     init_distributed_mode(args)
@@ -290,6 +287,9 @@ if __name__ == '__main__':
     vocab_size = args.n_tokens + 1
     block_size = args.max_output_length + 1
     logger.info(f"dataset determined that: {vocab_size=}, {block_size=}")
+
+    torch.cuda.empty_cache()
+    torch.cuda.memory.empty_cache()
 
     # init model
     config = ModelConfig(vocab_size=vocab_size, block_size=block_size,

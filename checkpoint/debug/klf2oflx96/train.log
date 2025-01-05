@@ -1,0 +1,75 @@
+INFO - 01/04/25 13:08:42 - 0:00:00 - ============ Initialized logger ============
+INFO - 01/04/25 13:08:42 - 0:00:00 - batch_size: 32
+                                     command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=40000 --final_database_size=10000 --target_db_size=40000 --sample-only=40000 --nb_threads=16 --nb_local_searches=3200 --num-workers=16 --max-steps=20000 --max_epochs=30000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=160 --gen_batch_size=1000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug --local_rank=-1 --master_port=-1 --cpu=false --debug_slurm=False --exp_id "klf2oflx96"
+                                     cpu: False
+                                     debug: False
+                                     debug_slurm: False
+                                     dump_path: checkpoint\debug\klf2oflx96
+                                     exp_id: klf2oflx96
+                                     exp_name: debug
+                                     final_database_size: 10000
+                                     gen_batch_size: 1000
+                                     global_rank: 0
+                                     is_master: True
+                                     is_slurm_job: False
+                                     learning_rate: 0.0005
+                                     local_rank: 0
+                                     master_port: -1
+                                     max_epochs: 30000
+                                     max_output_length: 160
+                                     max_steps: 20000
+                                     multi_gpu: False
+                                     multi_node: False
+                                     n_embd: 64
+                                     n_embd2: 32
+                                     n_gpu_per_node: 1
+                                     n_head: 8
+                                     n_layer: 4
+                                     n_nodes: 1
+                                     n_tokens: 100
+                                     nb_local_searches: 3200
+                                     nb_threads: 16
+                                     node_id: 0
+                                     num_initial_empty_objects: 40000
+                                     num_workers: 16
+                                     sample_only: 40000
+                                     seed: -1
+                                     target_db_size: 40000
+                                     temperature: 1.0
+                                     top_k: -1
+                                     type: transformer
+                                     weight_decay: 0.01
+                                     world_size: 1
+INFO - 01/04/25 13:08:42 - 0:00:00 - The experiment will be stored in checkpoint\debug\klf2oflx96
+                                     
+INFO - 01/04/25 13:08:42 - 0:00:00 - Running command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=40000 --final_database_size=10000 --target_db_size=40000 --sample-only=40000 --nb_threads=16 --nb_local_searches=3200 --num-workers=16 --max-steps=20000 --max_epochs=30000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=160 --gen_batch_size=1000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug --local_rank=-1 --master_port=-1 --cpu=false --debug_slurm=False
+
+INFO - 01/04/25 13:08:42 - 0:00:00 - seed: 835672174
+INFO - 01/04/25 13:08:42 - 0:00:00 - JULIA_NUM_THREADS is set to 16
+INFO - 01/04/25 13:08:51 - 0:00:09 - Created checkpoint\debug\klf2oflx96\temp.txt and training tokenizer...
+INFO - 01/04/25 13:08:51 - 0:00:09 - Directory 'checkpoint\debug\klf2oflx96/tokenizer_data' created.
+INFO - 01/04/25 13:08:52 - 0:00:10 - File 'checkpoint\debug\klf2oflx96\temp.txt' has been deleted.
+INFO - 01/04/25 13:08:52 - 0:00:10 - 0 / 10000
+INFO - 01/04/25 13:08:52 - 0:00:11 - initializing at generation: 1
+INFO - 01/04/25 13:08:52 - 0:00:11 - number of examples in the dataset: 10000
+INFO - 01/04/25 13:08:52 - 0:00:11 - max word length: 40
+INFO - 01/04/25 13:08:52 - 0:00:11 - number of unique characters in the vocabulary: 100
+INFO - 01/04/25 13:08:52 - 0:00:11 - vocabulary:
+INFO - 01/04/25 13:08:52 - 0:00:11 - ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21', 'V22', 'V23', 'V24', 'V25', 'V26', 'V27', 'V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35', 'V36', 'V37', 'V38', 'V39', 'V40', 'V41', 'V42', 'V43', 'V44', 'V45', 'V46', 'V47', 'V48', 'V49', 'V50', 'V51', 'V52', 'V53', 'V54', 'V55', 'V56', 'V57', 'V58', 'V59', 'V60', 'V61', 'V62', 'V63', 'V64', 'V65', 'V66', 'V67', 'V68', 'V69', 'V70', 'V71', 'V72', 'V73', 'V74', 'V75', 'V76', 'V77', 'V78', 'V79', 'V80', 'V81', 'V82', 'V83', 'V84', 'V85', 'V86', 'V87', 'V88', 'V89', 'V90', 'V91', 'V92', 'V93', 'V94', 'V95', 'V96', 'V97', 'V98', 'V99']
+INFO - 01/04/25 13:08:52 - 0:00:11 - split up the dataset into 9000 training examples and 1000 test examples
+INFO - 01/04/25 13:08:52 - 0:00:11 - dataset determined that: vocab_size=101, block_size=161
+INFO - 01/04/25 13:08:53 - 0:00:11 - model #params: 223296
+INFO - 01/04/25 13:08:53 - 0:00:11 - ============ Start of generation 1 ============
+INFO - 01/04/25 13:08:53 - 0:00:11 - Memory allocated:  1.26MB, reserved: 2.00MB
+INFO - 01/04/25 13:08:53 - 0:00:11 - training
+INFO - 01/04/25 13:09:20 - 0:00:38 - step 0 | loss 4.7677 | step time 740.46ms
+INFO - 01/04/25 13:09:24 - 0:00:42 - step 100 | loss 4.0455 | step time 34.26ms
+INFO - 01/04/25 13:09:27 - 0:00:45 - step 200 | loss 3.9286 | step time 31.67ms
+INFO - 01/04/25 13:09:30 - 0:00:49 - step 300 | loss 3.9146 | step time 32.22ms
+INFO - 01/04/25 13:09:34 - 0:00:52 - step 400 | loss 3.9008 | step time 33.39ms
+INFO - 01/04/25 13:09:37 - 0:00:55 - step 500 | loss 3.8743 | step time 33.34ms
+INFO - 01/04/25 13:09:38 - 0:00:56 - step 500 train loss: 3.8523805141448975 test loss: 3.8693275451660156
+INFO - 01/04/25 13:09:38 - 0:00:56 - test loss 3.8693275451660156 is the best so far, saving model to checkpoint\debug\klf2oflx96\model.pt
+INFO - 01/04/25 13:09:41 - 0:00:59 - step 600 | loss 3.8429 | step time 33.34ms
+INFO - 01/04/25 13:09:45 - 0:01:03 - step 700 | loss 3.8526 | step time 44.20ms
+INFO - 01/04/25 13:09:48 - 0:01:07 - step 800 | loss 3.7879 | step time 37.12ms
