@@ -1,0 +1,5 @@
+Score: 100.0, Count: 2215
+Score: 99.0, Count: 2503
+Score: 96.0, Count: 403
+Score: 91.0, Count: 4765
+Score: 90.0, Count: 114

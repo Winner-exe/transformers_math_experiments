@@ -259,7 +259,7 @@ if __name__ == '__main__':
     if args.is_slurm_job:
         init_signal_handler()
     
-    args.device = "cpu" if args.cpu else "cuda"
+    args.device = "cpu" if args.cpu else "cuda:0"
     if args.seed < 0:
         args.seed = np.random.randint(1_000_000_000)
     logger.info(f"seed: {args.seed}")
@@ -268,6 +268,9 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     # os.makedirs(args.work_dir, exist_ok=True)
+    torch.cuda.empty_cache()
+    torch.cuda.memory.empty_cache()
+    # torch.cuda.set_per_process_memory_fraction(0.1, device=torch.device('cuda:0'))
 
     # init datasets
     for i in range(1,args.max_epochs):
@@ -288,12 +291,11 @@ if __name__ == '__main__':
     block_size = args.max_output_length + 1
     logger.info(f"dataset determined that: {vocab_size=}, {block_size=}")
 
-    torch.cuda.empty_cache()
-    torch.cuda.memory.empty_cache()
+
 
     # init model
     config = ModelConfig(vocab_size=vocab_size, block_size=block_size,
-                       n_layer=args.n_layer, n_head=args.n_head,
+                         n_layer=args.n_layer, n_head=args.n_head,
                        n_embd=args.n_embd, n_embd2=args.n_embd2)
     if args.type == 'transformer':
         model = Transformer(config)
@@ -361,7 +363,7 @@ if __name__ == '__main__':
             
 
             # wait for all CUDA work on the GPU to finish then calculate iteration time taken
-            if args.device =="cuda":
+            if args.device =="cuda:0":
                 torch.cuda.synchronize()
             t1 = time.time()
 
