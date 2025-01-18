@@ -542,7 +542,7 @@ function remove_folds!(graph::MetaGraph)
         fold_colors = Dict{Int, Int}()
 
         # Count all folds with corresponding colors/orientation
-        for j2 in neighbors(graph, j1)
+        for j2 in neighbors(graph, j1+M)
             if j2 <= M
                 continue
             elseif j1 < j2 - M
@@ -577,7 +577,7 @@ function remove_folds!(graph::MetaGraph)
             # Choose b-neighbor with the least copies to delete
             j2_choice = 0
             gluing_number = MAX_GLUING_NUM + 1
-            for j2 in neighbors(graph, j1)
+            for j2 in neighbors(graph, j1+M)
                 if j2 <= M
                     continue
                 elseif j1 < j2-M && graph["b$(j1)", "b$(j2-M)"][1] == color_choice
