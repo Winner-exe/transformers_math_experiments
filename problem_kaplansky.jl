@@ -7,6 +7,7 @@ include("constants.jl")
 
 const M = 2
 const N = 3
+const MAX_GLUING_NUM = floor((M*N + 1)/2)
 
 function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph
     """
@@ -38,7 +39,7 @@ function convert_string_to_graph(graph_str::String)::MetaGraph
     two_cells = parse.(Int, split(graph_str, ","))
     if size(two_cells, 1) != Int((M*N)*(M-1)*(N-1)/2)
         return graph_error("input error")
-    elseif count(x -> x != 0, two_cells) > floor((M*N+1)/2)
+    elseif count(x -> x != 0, two_cells) > MAX_GLUING_NUM
         return graph_error("input error")
     end
 
@@ -60,11 +61,9 @@ function convert_string_to_graph(graph_str::String)::MetaGraph
         end
     end
 
-    graph = MetaGraph(complete_bipartite_graph(M,N), vertices_description, edges_description, "coloring+orientation")
+    graph = MetaGraph(complete_bipartite_graph(M,N), vertices_description, edges_description, "color+orientation")
 
     # Add edges to form horizontal graphs L_A and L_B
-    color = 1
-    assign_color = 1
     index = 1
 
     # Check valid 2-cells
@@ -79,133 +78,13 @@ function convert_string_to_graph(graph_str::String)::MetaGraph
                         # 2-cell is in taiko but violates partition condition
                         elseif graph["a$(i1)","b$(j1)"][1] != 0 || graph["a$(i2)","b$(j2)"][1] != 0
                             return graph_error("partition error at $(index)")
-                        # 2-cell is in taiko, b graph orientation same
-                        elseif j1 < j2
-                            # Both horizontal edges filled in, check if orientation match and throw error if otherwise
-                            if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
-                                if sign(graph["a$(i1)","a$(i2)"][1]) != sign(graph["b$(j1)","b$(j2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                # Colors don't match, update rest of structure to use smaller color
-                                elseif graph["a$(i1)","a$(i2)"][1] != graph["b$(j1)","b$(j2)"][1]
-                                    new_color = min(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
-                                    old_color = max(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
-
-                                    for edge in edge_labels(graph)
-                                        if abs(graph[edge[1], edge[2]][1]) == old_color
-                                            sign_mod = sign(graph[edge[1], edge[2]][1])
-                                            graph[edge[1], edge[2]][1] = new_color * sign_mod
-                                        end
-                                    end
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = new_color
-                                    graph["a$(i2)","b$(j2)"][1] = new_color
-                                else
-                                    assign_color = abs(graph["a$(i1)","a$(i2)"][1])
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            # Exactly one horizontal edge filled in, make other horizontal edge match color.
-                            # If orientation does not match with the given string, throw error.
-                            elseif has_edge(graph, i1, i2)
-                                if two_cells[index] != sign(graph["a$(i1)","a$(i2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                else
-                                    assign_color = abs(graph["a$(i1)","a$(i2)"][1])
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"] = MVector(graph["a$(i1)","a$(i2)"][1], 1)
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            elseif has_edge(graph, j1 + M, j2 + M)
-                                if two_cells[index] != sign(graph["b$(j1)","b$(j2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                else
-                                    assign_color = abs(graph["b$(j1)","b$(j2)"][1])
-                                    graph["a$(i1)","a$(i2)"] = MVector(graph["b$(j1)","b$(j2)"][1], 1)
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            # Neither edge filled in, update both with a new color.
-                            else
-                                assign_color = color
-                                graph["a$(i1)","a$(i2)"] = MVector(assign_color * two_cells[index], 1)
-                                graph["b$(j1)","b$(j2)"] = MVector(assign_color * two_cells[index], 1)
-                                graph["a$(i1)","b$(j1)"][1] = assign_color
-                                graph["a$(i2)","b$(j2)"][1] = assign_color
-                                color += 1
-                                index += 1
-                            end
-                        # 2-cell is in taiko, b graph orientation reversed
+                        # 2-cell is in taiko, orientation-related error
+                        elseif !can_add_two_cell(graph, i1, i2, j1, j2, two_cells[index])
+                            return graph_error("orientation error at $(index)")
+                        # Can add two cell, so adds it.
                         else
-                            # Both horizontal edges filled in, check if color/orientation match and throw error if otherwise
-                            if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
-                                if sign(graph["a$(i1)","a$(i2)"][1]) != -1 * sign(graph["b$(j1)","b$(j2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                # Colors don't match, update rest of structure to use smaller color
-                                elseif graph["a$(i1)","a$(i2)"][1] != -1 * graph["b$(j1)","b$(j2)"][1]
-                                    new_color = min(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
-                                    old_color = max(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
-
-                                    for edge in edge_labels(graph)
-                                        if abs(graph[edge[1], edge[2]][1]) == old_color
-                                            sign_mod = sign(graph[edge[1], edge[2]][1])
-                                            graph[edge[1], edge[2]][1] = sign_mod * new_color
-                                        end
-                                    end
-
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = new_color
-                                    graph["a$(i2)","b$(j2)"][1] = new_color
-                                else
-                                    assign_color = abs(graph["a$(i1)","a$(i2)"][1])
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            # Exactly one horizontal edge filled in, make other horizontal edge match color.
-                            # If orientation does not match with the given string, throw error.
-                            elseif has_edge(graph, i1, i2)
-                                if two_cells[index] != sign(graph["a$(i1)","a$(i2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                else
-                                    assign_color = abs(graph["a$(i1)","a$(i2)"][1])
-                                    graph["a$(i1)","a$(i2)"][2] += 1
-                                    graph["b$(j1)","b$(j2)"] = MVector(-1 * graph["a$(i1)","a$(i2)"][1], 1)
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            elseif has_edge(graph, j1 + M, j2 + M)
-                                if two_cells[index] != -1 * sign(graph["b$(j1)","b$(j2)"][1])
-                                    return graph_error("orientation error at $(index)")
-                                else
-                                    assign_color = abs(graph["b$(j1)","b$(j2)"][1])
-                                    graph["a$(i1)","a$(i2)"] = MVector(-1 * graph["b$(j1)","b$(j2)"][1], 1)
-                                    graph["b$(j1)","b$(j2)"][2] += 1
-                                    graph["a$(i1)","b$(j1)"][1] = assign_color
-                                    graph["a$(i2)","b$(j2)"][1] = assign_color
-                                    index += 1
-                                end
-                            # Neither edge filled in, update both with a new color.
-                            else
-                                assign_color = color
-                                graph["a$(i1)","a$(i2)"] = MVector(assign_color * two_cells[index], 1)
-                                graph["b$(j1)","b$(j2)"] = MVector(-1 * assign_color * two_cells[index], 1)
-                                graph["a$(i1)","b$(j1)"][1] = assign_color
-                                graph["a$(i2)","b$(j2)"][1] = assign_color
-                                color += 1
-                                index += 1
-                            end
+                            add_two_cell!(graph, i1, i2, j1, j2, two_cells[index])
+                            index += 1
                         end
                     end
                 end
@@ -259,9 +138,202 @@ function convert_graph_to_string(graph::MetaGraph)::String
     return chop(join(entries))
 end
 
+function can_add_two_cell(graph::MetaGraph, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
+    """
+    Returns true if the given 2-cell with given orientation can be added to the taiko, false otherwise.
+    """
+    # Degenerate square
+    if i1 == i2 || j1 == j2
+        return false
+    # Bipartite edges are colored
+    elseif graph["a$(i1)", "b$(j1)"][1] != 0 || graph["a$(i2)", "b$(j2)"][1] != 0
+        return false
+    end
+
+
+    # b graph orientation same
+    if j1 < j2
+        # Both horizontal edges filled in, check if orientation match and return falseif otherwise
+        if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
+            if sign(graph["a$(i1)","a$(i2)"][1]) != sign(graph["b$(j1)","b$(j2)"][1])
+                return false
+            else
+                return true
+            end
+        # Exactly one horizontal edge filled in.
+        # If orientation does not match with the given string, return false.
+        elseif has_edge(graph, i1, i2)
+            if orientation != sign(graph["a$(i1)","a$(i2)"][1])
+                return false
+            else
+                return true
+            end
+        elseif has_edge(graph, j1 + M, j2 + M)
+            if orientation != sign(graph["b$(j1)","b$(j2)"][1])
+                return false
+            else
+                return true
+            end
+        # Neither edge filled in
+        else
+            return true
+        end
+    # b graph orientation reversed
+    else
+        # Both horizontal edges filled in, check if orientation match and return false if otherwise
+        if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
+            if sign(graph["a$(i1)","a$(i2)"][1]) != -1 * sign(graph["b$(j1)","b$(j2)"][1])
+                return false
+            else
+                return true
+            end
+        # Exactly one horizontal edge filled in.
+        # If orientation does not match with the given string, return false.
+        elseif has_edge(graph, i1, i2)
+            if orientation != sign(graph["a$(i1)","a$(i2)"][1])
+                return false
+            else
+                return true
+            end
+        elseif has_edge(graph, j1 + M, j2 + M)
+            if two_cells[index] != -1 * sign(graph["b$(j1)","b$(j2)"][1])
+                return false
+            else
+                return true
+            end
+        # Neither edge filled in.
+        else
+            return true
+        end
+    end
+end
+
+function add_two_cell!(graph::MetaGraph, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
+    """
+    Attempts to add the given oriented 2-cell. Returns true if successful, false otherwise.
+    """
+    if !can_add_two_cell(graph, i1, i2, j1, j2, orientation)
+        return false
+    end
+
+    # Find an available color by taking the maximum color in the taiko and adding 1.
+    color = 1
+    for edge in edge_labels(graph)
+        if abs(graph[edge[1], edge[2]][1]) > color
+            color = abs(graph[edge[1], edge[2]][1])
+        end
+    end
+
+    assign_color = 1
+
+    # 2-cell is in taiko, b graph orientation same
+    if j1 < j2
+        # Both horizontal edges filled in, check if orientation match and throw error if otherwise
+        if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
+            # Colors don't match, update rest of structure to use smaller color
+            if graph["a$(i1)","a$(i2)"][1] != graph["b$(j1)","b$(j2)"][1]
+                new_color = min(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
+                old_color = max(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
+
+                for edge in edge_labels(graph)
+                    if abs(graph[edge[1], edge[2]][1]) == old_color
+                        sign_mod = sign(graph[edge[1], edge[2]][1])
+                        graph[edge[1], edge[2]][1] = new_color * sign_mod
+                    end
+                end
+                graph["a$(i1)","a$(i2)"][2] += 1
+                graph["b$(j1)","b$(j2)"][2] += 1
+                graph["a$(i1)","b$(j1)"][1] = new_color
+                graph["a$(i2)","b$(j2)"][1] = new_color
+            else
+                assign_color = abs(graph["a$(i1)","a$(i2)"][1])
+                graph["a$(i1)","a$(i2)"][2] += 1
+                graph["b$(j1)","b$(j2)"][2] += 1
+                graph["a$(i1)","b$(j1)"][1] = assign_color
+                graph["a$(i2)","b$(j2)"][1] = assign_color
+            end
+        # Exactly one horizontal edge filled in, make other horizontal edge match color.
+        elseif has_edge(graph, i1, i2)
+            assign_color = abs(graph["a$(i1)","a$(i2)"][1])
+            graph["a$(i1)","a$(i2)"][2] += 1
+            graph["b$(j1)","b$(j2)"] = MVector(graph["a$(i1)","a$(i2)"][1], 1)
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+        elseif has_edge(graph, j1 + M, j2 + M)
+            assign_color = abs(graph["b$(j1)","b$(j2)"][1])
+            graph["a$(i1)","a$(i2)"] = MVector(graph["b$(j1)","b$(j2)"][1], 1)
+            graph["b$(j1)","b$(j2)"][2] += 1
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+        # Neither edge filled in, update both with a new color.
+        else
+            assign_color = color
+            graph["a$(i1)","a$(i2)"] = MVector(assign_color * orientation, 1)
+            graph["b$(j1)","b$(j2)"] = MVector(assign_color * orientation, 1)
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+
+            color += 1
+        end
+    # 2-cell is in taiko, b graph orientation reversed
+    else
+        # Both horizontal edges filled in, check if color/orientation match and throw error if otherwise
+        if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
+            # Colors don't match, update rest of structure to use smaller color
+            if graph["a$(i1)","a$(i2)"][1] != -1 * graph["b$(j1)","b$(j2)"][1]
+                new_color = min(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
+                old_color = max(abs(graph["a$(i1)","a$(i2)"][1]), abs(graph["b$(j1)","b$(j2)"][1]))
+
+                for edge in edge_labels(graph)
+                    if abs(graph[edge[1], edge[2]][1]) == old_color
+                        sign_mod = sign(graph[edge[1], edge[2]][1])
+                        graph[edge[1], edge[2]][1] = sign_mod * new_color
+                    end
+                end
+
+                graph["a$(i1)","a$(i2)"][2] += 1
+                graph["b$(j1)","b$(j2)"][2] += 1
+                graph["a$(i1)","b$(j1)"][1] = new_color
+                graph["a$(i2)","b$(j2)"][1] = new_color
+            else
+                assign_color = abs(graph["a$(i1)","a$(i2)"][1])
+                graph["a$(i1)","a$(i2)"][2] += 1
+                graph["b$(j1)","b$(j2)"][2] += 1
+                graph["a$(i1)","b$(j1)"][1] = assign_color
+                graph["a$(i2)","b$(j2)"][1] = assign_color
+            end
+        # Exactly one horizontal edge filled in, make other horizontal edge match color.
+        # If orientation does not match with the given string, throw error.
+        elseif has_edge(graph, i1, i2)
+            assign_color = abs(graph["a$(i1)","a$(i2)"][1])
+            graph["a$(i1)","a$(i2)"][2] += 1
+            graph["b$(j1)","b$(j2)"] = MVector(-1 * graph["a$(i1)","a$(i2)"][1], 1)
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+        elseif has_edge(graph, j1 + M, j2 + M)
+            assign_color = abs(graph["b$(j1)","b$(j2)"][1])
+            graph["a$(i1)","a$(i2)"] = MVector(-1 * graph["b$(j1)","b$(j2)"][1], 1)
+            graph["b$(j1)","b$(j2)"][2] += 1
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+        # Neither edge filled in, update both with a new color.
+        else
+            assign_color = color
+            graph["a$(i1)","a$(i2)"] = MVector(assign_color * orientation, 1)
+            graph["b$(j1)","b$(j2)"] = MVector(-1 * assign_color * orientation, 1)
+            graph["a$(i1)","b$(j1)"][1] = assign_color
+            graph["a$(i2)","b$(j2)"][1] = assign_color
+
+            color += 1
+        end
+    end
+
+    return true
+end
+
 function is_valid_two_cell(graph::MetaGraph, i1::Int, i2::Int, j1::Int, j2::Int)::Bool
     """
-    Returns true if valid oriented 2-cell, false otherwise.
+    Returns true if valid oriented 2-cell currently in the taiko, false otherwise.
     """
 
     # Degenerate square
@@ -292,6 +364,9 @@ end
 function remove_two_cell!(graph::MetaGraph, i1::Int, i2::Int, j1::Int, j2::Int)
     """
     Helper function to remove a given 2-cell from the given structure.
+
+    i1, i2 are integers between 1 and M.
+    j1, j2 are integers between 1 and N.
     """
 
     # Check if valid 2-cell
@@ -321,8 +396,50 @@ function no_fold(graph::MetaGraph)::Bool
     """
     Returns true if the no_fold condition holds, false otherwise.
     """
-    # To be implemented
-    return true
+    # Find folds in L_A
+    for i1 in 1:M
+        used_colors = Set{Int}()
+
+        # Check vertex i1 for folds
+        for i2 in neighbors(graph, i1)
+            if i2 > M
+                continue
+            elseif i1 < i2 && graph["a$(i1)", "a$(i2)"][1] in used_colors
+                current_color = graph["a$(i1)", "a$(i2)"][1]
+                if current_color in used_colors
+                    return false
+                end
+            else
+                current_color = -1 * graph["a$(i1)", "a$(i2)"][1]
+                if current_color in used_colors
+                    return false
+                end
+            end
+        end
+    end
+
+    # Find folds in L_B
+    for j1 in 1:N
+        used_colors = Set{Int}()
+
+        # Check vertex i1 for folds
+        for j2_code in neighbors(graph, j1)
+            j2 = j2_code - M
+            if j2 > N
+                continue
+            elseif j1 < j2 && graph["b$(j1)", "b$(j2)"][1] in used_colors
+                current_color = graph["b$(j1)", "b$(j2)"][1]
+                if current_color in used_colors
+                    return false
+                end
+            else
+                current_color = -1 * graph["b$(j1)", "b$(j2)"][1]
+                if current_color in used_colors
+                    return false
+                end
+            end
+        end
+    end
 end
 
 function remove_folds!(graph::MetaGraph)
@@ -354,6 +471,7 @@ function remove_folds!(graph::MetaGraph)
                     end
                 else
                     push!(used_colors, graph["a$(i1)", "a$(i2)"][1])
+                end
             else
                 current_color = -1 * graph["a$(i1)", "a$(i2)"][1]
                 if current_color in used_colors
@@ -364,6 +482,7 @@ function remove_folds!(graph::MetaGraph)
                     end
                 else
                     push!(used_colors, current_color)
+                end
             end
         end
 
@@ -372,19 +491,23 @@ function remove_folds!(graph::MetaGraph)
             color_choice = rand(collect(keys(fold_colors)))
 
             # Choose a-neighbor with the least copies to delete
-            allowed_a_neighbors = Vector{Int}()
+            i2_choice = 0
+            gluing_number = MAX_GLUING_NUM + 1
             for i2 in neighbors(graph, i1)
                 if i2 > M
                     continue
                 elseif i1 < i2 && graph["a$(i1)", "a$(i2)"][1] == color_choice
-                    push!(allowed_a_neighbors, i2)
+                    if graph["a$(i1)", "a$(i2)"][2] < gluing_number
+                        i2_choice = i2
+                        gluing_number = graph["a$(i1)", "a$(i2)"][2]
+                    end
                 elseif i2 < i1 && graph["a$(i1)", "a$(i2)"][1] == -1 * color_choice
-                    push!(allowed_a_neighbors, i2)
+                    if graph["a$(i1)", "a$(i2)"][2] < gluing_number
+                        i2_choice = i2
+                        gluing_number = graph["a$(i1)", "a$(i2)"][2]
+                    end
                 end
             end
-
-            sort!(allowed_a_neighbors, by=x -> graph["a$(i1)", "a$(x)"][2])
-            i2_choice = allowed_a_neighbors[1]
 
             # Randomly choose an associated two-cell
             allowed_two_cells = Vector{SVector{2, Int}}()
@@ -430,6 +553,7 @@ function remove_folds!(graph::MetaGraph)
                     end
                 else
                     push!(used_colors, graph["b$(j1)", "b$(j2-M)"][1])
+                end
             else
                 current_color = -1 * graph["b$(j1)", "b$(j2-M)"][1]
                 if current_color in used_colors
@@ -440,6 +564,7 @@ function remove_folds!(graph::MetaGraph)
                     end
                 else
                     push!(used_colors, current_color)
+                end
             end
         end
 
@@ -448,19 +573,23 @@ function remove_folds!(graph::MetaGraph)
             color_choice = rand(collect(keys(fold_colors)))
 
             # Choose b-neighbor with the least copies to delete
-            allowed_b_neighbors = Vector{Int}()
+            j2_choice = 0
+            gluing_number = MAX_GLUING_NUM + 1
             for j2 in neighbors(graph, j1)
                 if j2 <= M
                     continue
                 elseif j1 < j2-M && graph["b$(j1)", "b$(j2-M)"][1] == color_choice
-                    push!(allowed_b_neighbors, j2-M)
+                    if graph["b$(j1)", "b$(j2-M)"][2] < gluing_number
+                        j2_choice = j2-M
+                        gluing_number = graph["b$(j1)", "b$(j2-M)"][2]
+                    end
                 elseif j2-M < j1 && graph["b$(j1)", "b$(j2-M)"][1] == -1 * color_choice
-                    push!(allowed_b_neighbors, j2-M)
+                    if graph["b$(j1)", "b$(j2-M)"][2] < gluing_number
+                        j2_choice = j2-M
+                        gluing_number = graph["b$(j1)", "b$(j2-M)"][2]
+                    end
                 end
             end
-
-            sort!(allowed_b_neighbors, by=x -> graph["b$(j1)", "b$(x)"][2])
-            j2_choice = allowed_b_neighbors[1]
 
             # Randomly choose an associated two-cell
             allowed_two_cells = Vector{SVector{2, Int}}()
@@ -477,6 +606,7 @@ function remove_folds!(graph::MetaGraph)
 
             remove_two_cell!(graph, i1_choice, i2_choice, j1, j2_choice)
 
+            # Update fold_colors dict
             if !has_edge(graph, j1+M, j2_choice+M)
                 if fold_colors[color_choice] == 1
                     delete!(fold_colors, color_choice)
@@ -498,14 +628,19 @@ function no_pattern(graph::MetaGraph)::Bool
     for i1 in 1:M
         adj_edges = Vector{Pair{Int, Int}}()
         for i2 in neighbors(graph, i1)
-            push!(adj_edges, i1 => i2)
+            if i2 <= M
+                push!(adj_edges, i1 => i2)
+            end
+        end
 
+        # Enumerate pairs of distinct adjacent edges and add patterns to set.
         E = size(adj_edges, 1)
         for e1 in 1:E
             for e2 in e1+1:E
                 color1 = 0
                 color2 = 0
 
+                # Get the color/orientation of the two edges
                 i2_1 = adj_edges[e1][2]
                 i2_2 = adj_edges[e2][2]
 
@@ -521,11 +656,13 @@ function no_pattern(graph::MetaGraph)::Bool
                     color2 = -1 * graph["a$(i1)", "a$(i2_2)"][1]
                 end
 
+                # Check if pattern is repeated.
                 if (color1 => color2) in used_patterns || (color2 => color1) in used_patterns
                     return false
                 else
                     push!(used_patterns, color1 => color2)
                     push!(used_patterns, color2 => color1)
+                end
             end
         end
     end
@@ -533,15 +670,20 @@ function no_pattern(graph::MetaGraph)::Bool
     # Check L_B
     for j1 in 1:N
         adj_edges = Vector{Pair{Int, Int}}()
-        for j2 in neighbors(graph, j1)
-            push!(adj_edges, j1 => j2-M)
+        for j2 in neighbors(graph, j1+M)
+            if j2 > M
+                push!(adj_edges, j1 => j2-M)
+            end
+        end
 
+        # Enumerate pairs of distinct adjacent edges and add patterns to set.
         E = size(adj_edges, 1)
         for e1 in 1:E
             for e2 in e1+1:E
                 color1 = 0
                 color2 = 0
 
+                # Get the color/orientation of the two edges
                 j2_1 = adj_edges[e1][2]
                 j2_2 = adj_edges[e2][2]
 
@@ -557,16 +699,123 @@ function no_pattern(graph::MetaGraph)::Bool
                     color2 = -1 * graph["b$(j1)", "b$(j2_2)"][1]
                 end
 
+                # Check if pattern is repeated.
                 if (color1 => color2) in used_patterns || (color2 => color1) in used_patterns
                     return false
                 else
                     push!(used_patterns, color1 => color2)
                     push!(used_patterns, color2 => color1)
+                end
             end
         end
     end
 
     return true
+end
+
+function find_repeated_patterns(graph::MetaGraph)::Dict{Pair{Int, Int}, Vector{Pair{String, String}, Pair{String, String}}}
+    """
+    Finds repeated patterns and returns the pairs of edges realizing the repeated patterns.
+    """
+    # Find repeated patterns and store pairs of horizontal edges in a dict
+    repeated_patterns = Dict{Pair{Int, Int}, Vector{Pair{String, String}, Pair{String, String}}}()
+
+    # Check L_A
+    for i1 in 1:M
+        adj_edges = Vector{Pair{Int, Int}}()
+        for i2 in neighbors(graph, i1)
+            if i2 <= M
+                push!(adj_edges, i1 => i2)
+            end
+        end
+
+        # Enumerate pairs of distinct adjacent edges and add patterns to set.
+        E = size(adj_edges, 1)
+        for e1 in 1:E
+            for e2 in e1+1:E
+                color1 = 0
+                color2 = 0
+
+                # Get the color/orientation of the two edges
+                i2_1 = adj_edges[e1][2]
+                i2_2 = adj_edges[e2][2]
+
+                if i1 < i2_1
+                    color1 = graph["a$(i1)", "a$(i2_1)"][1]
+                else
+                    color1 = -1 * graph["a$(i1)", "a$(i2_1)"][1]
+                end
+
+                if i1 < i2_2
+                    color2 = graph["a$(i1)", "a$(i2_2)"][1]
+                else
+                    color2 = -1 * graph["a$(i1)", "a$(i2_2)"][1]
+                end
+
+                # Add patterns to dict
+                if (color1 => color2) in repeated_patterns
+                    push!(repeated_patterns[(color1 => color2)], (("a$(i1)" => "a$(i2_1)") => ("a$(i1)" => "a$(i2_2)")))
+                elseif (color2 => color1) in repeated_patterns
+                    push!(repeated_patterns[(color2 => color1)], (("a$(i1)" => "a$(i2_1)") => ("a$(i1)" => "a$(i2_2)")))
+                else
+                    repeated_patterns[(color1 => color2)] = [(("a$(i1)" => "a$(i2_1)") => ("a$(i1)" => "a$(i2_2)"))]
+                end
+            end
+        end
+    end
+
+    # Check L_B
+    for j1 in 1:N
+        adj_edges = Vector{Pair{Int, Int}}()
+        for j2 in neighbors(graph, j1+M)
+            if j2 > M
+                push!(adj_edges, j1 => j2-M)
+            end
+        end
+
+        # Enumerate pairs of distinct adjacent edges and add patterns to set.
+        E = size(adj_edges, 1)
+        for e1 in 1:E
+            for e2 in e1+1:E
+                color1 = 0
+                color2 = 0
+
+                # Get the color/orientation of the two edges
+                j2_1 = adj_edges[e1][2]
+                j2_2 = adj_edges[e2][2]
+
+                if j1 < j2_1
+                    color1 = graph["b$(j1)", "b$(j2_1)"][1]
+                else
+                    color1 = -1 * graph["b$(j1)", "b$(j2_1)"][1]
+                end
+
+                if j1 < j2_2
+                    color2 = graph["b$(j1)", "b$(j2_2)"][1]
+                else
+                    color2 = -1 * graph["b$(j1)", "b$(j2_2)"][1]
+                end
+
+                # Add patterns to dict.
+                if (color1 => color2) in repeated_patterns
+                    push!(repeated_patterns[(color1 => color2)], (("b$(j1)" => "b$(j2_1)") => ("b$(j1)" => "b$(j2_2)")))
+                elseif (color2 => color1) in repeated_patterns
+                    push!(repeated_patterns[(color2 => color1)], (("b$(j1)" => "b$(j2_1)") => ("b$(j1)" => "b$(j2_2)")))
+                else
+                    repeated_patterns[(color1 => color2)] = [(("b$(j1)" => "b$(j2_1)") => ("b$(j1)" => "b$(j2_2)"))]
+                end
+            end
+        end
+    end
+
+    # Filter dict for repeated patterns
+    for (pattern, edge_pairs) in repeated_patterns
+        if size(edge_pairs, 1) == 1
+            repeated_patterns = delete!(repeated_patterns, pattern)
+        end
+    end
+
+    return repeated_patterns
 end
 
 function remove_patterns!(graph::MetaGraph)
@@ -579,7 +828,84 @@ function remove_patterns!(graph::MetaGraph)
     Note that positive integers correspond to outgoing edges and vice versa.
     """
 
-    # To be implemented
+    repeated_patterns = find_repeated_patterns(graph)
+
+    # For each repeated pattern, find the edge with the least gluing number, and remove a randomly chosen 2-cell with this edge.
+    while !isempty(repeated_patterns)
+        # Randomly chose a repeated pattern to remove.
+        pattern_choice = rand(collect(keys(repeated_patterns)))
+
+        # Store a vector of edges with the min gluing number
+        gluing_number = MAX_GLUING_NUM + 1
+        edge_choices = Vector{Pair{String, String}}()
+        for (edge1, edge2) in repeated_patterns[pattern_choice]
+            gluing_number1 = graph[edge1[1], edge1[2]][2]
+            gluing_number2 = graph[edge2[1], graph, edge2[2]][2]
+
+            if gluing_number1 < gluing_number
+                gluing_number = gluing_number1
+                edge_choices = [(edge1[1] => edge1[2])]
+            elseif gluing_number1 == gluing_number
+                push!(edge_choices, (edge1[1] => edge1[2]))
+            end
+
+            if gluing_number2 < gluing_number
+                gluing_number = gluing_number2
+                edge_choices = [(edge2[1] => edge2[2])]
+            elseif gluing_number2 == gluing_number
+                push!(edge_choices, (edge2[1] => edge2[2]))
+            end
+        end
+
+        # Randomly choose an edge to remove
+        edge_choice = rand(edge_choices)
+
+        # Edge is in L_A
+        if occursin("a", edge_choice[1])
+            i1 = code_for(graph, edge_choice[1])
+            i2 = code_for(graph, edge_choice[2])
+
+            # Randomly choose an associated two-cell
+            allowed_two_cells = Vector{SVector{2, Int}}()
+            for j1 in 1:N
+                for j2 in 1:N
+                    if is_valid_two_cell(i1, i2, j1, j2)
+                        push!(allowed_two_cells, SVector{Int}(j1, j2))
+                    end
+                end
+            end
+            two_cell_choice = rand(allowed_two_cells)
+            j1_choice = two_cell_choice[1]
+            j2_choice = two_cell_choice[2]
+
+            remove_two_cell!(graph, i1, i2, j1_choice, j2_choice)
+
+            # Update repeated_patterns dict
+            repeated_patterns = find_repeated_patterns(graph)
+        # Edge is in L_B
+        elseif occursin("b", edge_choice[1])
+            j1 = code_for(graph, edge_choice[1])
+            j2 = code_for(graph, edge_choice[2])
+
+            # Randomly choose an associated two-cell
+            allowed_two_cells = Vector{SVector{2, Int}}()
+            for i1 in 1:M
+                for i2 in 1:M
+                    if is_valid_two_cell(i1, i2, j1, j2)
+                        push!(allowed_two_cells, SVector{Int}(i1, i2))
+                    end
+                end
+            end
+            two_cell_choice = rand(allowed_two_cells)
+            i1_choice = two_cell_choice[1]
+            i2_choice = two_cell_choice[2]
+
+            remove_two_cell!(graph, i1_choice, i2_choice, j1, j2)
+
+            # Update repeated_patterns dict. Note that we call find_repeated_patterns in case the 2-cell removed multiple patterns.
+            repeated_patterns = find_repeated_patterns(graph)
+        end
+    end
 end
 
 function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
@@ -587,7 +913,7 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     Main greedy search algorithm.
     It starts and ends with some construction
 
-    Algorithm (taiko construction taken from https://mineyev.web.illinois.edu/art/top-geom-uzd-origami.pdf):
+    Algorithm (taiko concept taken from https://mineyev.web.illinois.edu/art/top-geom-uzd-origami.pdf):
 
     Input: A string P corresponding to a partition of the edge set.
 
@@ -657,6 +983,42 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     return [convert_graph_to_string(graph)]
 end
 
+function girth(graph::SimpleGraph)::Int
+    """
+    Returns the girth, or the length of the shortest simple cycle, of the given graph.
+
+    If girth > 6, returns 6 (since we only need to find girth >=6 graphs).
+    """
+    girth = 6
+    for vertex in vertices(graph)
+        # Perform BFS on vertex to search for cycles
+        explored = Dict{Int, Int}()
+        explored[vertex] = 0
+
+        parent = Dict{Int, Int}()
+        parent[vertex] = 0
+        bfs_queue = Queue{Int}()
+        enqueue!(bfs_queue, vertex)
+        depth = 0
+        while !isempty(bfs_queue) && depth <= 6
+            v = dequeue!(bfs_queue)
+            depth = explored[v]
+            for w in neighbors(graph, v)
+                if !(w in keys(explored))
+                    explored[w] = depth+1
+                    parent[w] = v
+                    enqueue!(bfs_queue, w)
+                # w has been visited, is not the parent of v, and the cycle length is < girth
+                elseif w != parent[v] && depth + explored[w] + 1 < girth
+                    girth = depth + explored[w] + 1
+                end
+            end
+        end
+    end
+
+    return girth
+end
+
 function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
     """
     Function to calculate the reward of a final construction.
@@ -664,7 +1026,13 @@ function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
     In our case, calculates the min(girth(L_A), girth(L_B)) if input is a PI struct, or 0 if input is not a PI struct.
     Note that we can bound girth calculations to girths of at most 6 since we win if we reach girth 6.
     """
-    return 0
+    graph = SimpleGraph(convert_string_to_graph(obj))
+    L_A, vmap_A = induced_subgraph(graph, 1:M)
+    L_B, vmap_B = induced_subgraph(graph, (M+1):(M+N))
+
+    girth_A = girth(L_A)
+    girth_B = girth(L_B)
+    return min(girth_A, girth_B)
 end
 
 
