@@ -422,10 +422,10 @@ function no_fold(graph::MetaGraph)::Bool
     for j1 in 1:N
         used_colors = Set{Int}()
 
-        # Check vertex i1 for folds
-        for j2_code in neighbors(graph, j1)
+        # Check vertex j1 for folds
+        for j2_code in neighbors(graph, j1+M)
             j2 = j2_code - M
-            if j2 > N
+            if j2 <= 0
                 continue
             elseif j1 < j2 && graph["b$(j1)", "b$(j2)"][1] in used_colors
                 current_color = graph["b$(j1)", "b$(j2)"][1]
@@ -440,6 +440,8 @@ function no_fold(graph::MetaGraph)::Bool
             end
         end
     end
+
+    return true
 end
 
 function remove_folds!(graph::MetaGraph)
@@ -1026,9 +1028,14 @@ function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
     In our case, calculates the min(girth(L_A), girth(L_B)) if input is a PI struct, or 0 if input is not a PI struct.
     Note that we can bound girth calculations to girths of at most 6 since we win if we reach girth 6.
     """
-    graph = SimpleGraph(convert_string_to_graph(obj))
-    L_A, vmap_A = induced_subgraph(graph, 1:M)
-    L_B, vmap_B = induced_subgraph(graph, (M+1):(M+N))
+    graph = convert_string_to_graph(obj)
+    two_cells = parse.(Int, split(obj, ","))
+    if count(x -> x != 0, two_cells) != MAX_GLUING_NUM || !no_fold(graph) || !no_pattern(graph)
+        return 0
+    end
+    graph_simple = SimpleGraph(graph)
+    L_A, vmap_A = induced_subgraph(graph_simple, 1:M)
+    L_B, vmap_B = induced_subgraph(graph_simple, (M+1):(M+N))
 
     girth_A = girth(L_A)
     girth_B = girth(L_B)
