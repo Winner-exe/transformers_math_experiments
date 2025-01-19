@@ -1,0 +1,66 @@
+INFO - 01/19/25 04:57:04 - 0:00:00 - ============ Initialized logger ============
+INFO - 01/19/25 04:57:04 - 0:00:00 - batch_size: 32
+                                     command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=1000 --final_database_size=250 --target_db_size=1000 --sample-only=1000 --nb_threads=16 --nb_local_searches=160 --num-workers=8 --max-steps=20000 --max_epochs=30000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=1200 --gen_batch_size=2000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug_kaplansky --local_rank=-1 --master_port=-1 --debug_slurm=False --exp_id "jy10pm0fxw"
+                                     cpu: False
+                                     debug: False
+                                     debug_slurm: False
+                                     dump_path: checkpoint\debug_kaplansky\jy10pm0fxw
+                                     exp_id: jy10pm0fxw
+                                     exp_name: debug_kaplansky
+                                     final_database_size: 250
+                                     gen_batch_size: 2000
+                                     global_rank: 0
+                                     is_master: True
+                                     is_slurm_job: False
+                                     learning_rate: 0.0005
+                                     local_rank: 0
+                                     master_port: -1
+                                     max_epochs: 30000
+                                     max_output_length: 1200
+                                     max_steps: 20000
+                                     multi_gpu: False
+                                     multi_node: False
+                                     n_embd: 64
+                                     n_embd2: 32
+                                     n_gpu_per_node: 1
+                                     n_head: 8
+                                     n_layer: 4
+                                     n_nodes: 1
+                                     n_tokens: 100
+                                     nb_local_searches: 160
+                                     nb_threads: 16
+                                     node_id: 0
+                                     num_initial_empty_objects: 1000
+                                     num_workers: 8
+                                     sample_only: 1000
+                                     seed: -1
+                                     target_db_size: 1000
+                                     temperature: 1.0
+                                     top_k: -1
+                                     type: transformer
+                                     weight_decay: 0.01
+                                     world_size: 1
+INFO - 01/19/25 04:57:04 - 0:00:00 - The experiment will be stored in checkpoint\debug_kaplansky\jy10pm0fxw
+                                     
+INFO - 01/19/25 04:57:04 - 0:00:00 - Running command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=1000 --final_database_size=250 --target_db_size=1000 --sample-only=1000 --nb_threads=16 --nb_local_searches=160 --num-workers=8 --max-steps=20000 --max_epochs=30000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=1200 --gen_batch_size=2000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug_kaplansky --local_rank=-1 --master_port=-1 --debug_slurm=False
+
+INFO - 01/19/25 04:57:04 - 0:00:00 - seed: 919237178
+INFO - 01/19/25 04:57:04 - 0:00:00 - JULIA_NUM_THREADS is set to 16
+INFO - 01/19/25 04:59:57 - 0:02:52 - Created checkpoint\debug_kaplansky\jy10pm0fxw\temp.txt and training tokenizer...
+INFO - 01/19/25 04:59:57 - 0:02:52 - Directory 'checkpoint\debug_kaplansky\jy10pm0fxw/tokenizer_data' created.
+INFO - 01/19/25 04:59:57 - 0:02:52 - File 'checkpoint\debug_kaplansky\jy10pm0fxw\temp.txt' has been deleted.
+INFO - 01/19/25 04:59:57 - 0:02:52 - 0 / 250
+INFO - 01/19/25 04:59:57 - 0:02:52 - initializing at generation: 1
+INFO - 01/19/25 04:59:57 - 0:02:52 - number of examples in the dataset: 250
+INFO - 01/19/25 04:59:57 - 0:02:52 - max word length: 360
+INFO - 01/19/25 04:59:57 - 0:02:52 - number of unique characters in the vocabulary: 5
+INFO - 01/19/25 04:59:57 - 0:02:52 - vocabulary:
+INFO - 01/19/25 04:59:57 - 0:02:52 - ['V0', 'V1', 'V2', 'V3', 'V4']
+INFO - 01/19/25 04:59:57 - 0:02:52 - split up the dataset into 225 training examples and 25 test examples
+INFO - 01/19/25 04:59:57 - 0:02:52 - dataset determined that: vocab_size=101, block_size=1201
+INFO - 01/19/25 04:59:57 - 0:02:52 - model #params: 289856
+INFO - 01/19/25 04:59:57 - 0:02:52 - ============ Start of generation 1 ============
+INFO - 01/19/25 04:59:57 - 0:02:52 - Memory allocated:  23.12MB, reserved: 42.00MB
+INFO - 01/19/25 04:59:57 - 0:02:52 - training
+INFO - 01/19/25 05:00:23 - 0:03:19 - step 0 | loss 4.9863 | step time 13350.74ms
+INFO - 01/19/25 05:06:57 - 0:09:53 - step 100 | loss 0.2367 | step time 3941.00ms

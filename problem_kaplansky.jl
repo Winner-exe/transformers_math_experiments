@@ -5,10 +5,10 @@ using StaticArrays
 
 include("constants.jl")
 
-const M = 8
-const N = 5
+const M = 6
+const N = 4
 const MAX_GLUING_NUM = floor(Int, (M*N + 1)/2) # Number of 2-cells in a refined taiko, also the maximum possible gluing number of a horizontal edge.
-const REFINE_ATTEMPTS = min(2 ^ floor((M*N + 1)/2), 1000) # Number of attempts the greedy search takes to refine a taiko.
+const REFINE_ATTEMPTS = min(2 ^ floor((M*N + 1)/2), 2000) # Number of attempts the greedy search takes to refine a taiko.
 const WEIGHT_FUNC = edge_data -> 1.0
 
 function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}

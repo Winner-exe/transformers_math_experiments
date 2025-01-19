@@ -1,0 +1,90 @@
+INFO - 01/19/25 05:10:19 - 0:00:00 - ============ Initialized logger ============
+INFO - 01/19/25 05:10:19 - 0:00:00 - batch_size: 32
+                                     command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=1000 --final_database_size=250 --target_db_size=1000 --sample-only=1000 --nb_threads=16 --nb_local_searches=160 --num-workers=8 --max-steps=2000 --max_epochs=3000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=1200 --gen_batch_size=2000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug_kaplansky --local_rank=-1 --master_port=-1 --debug_slurm=False --exp_id "k90d90r86f"
+                                     cpu: False
+                                     debug: False
+                                     debug_slurm: False
+                                     dump_path: checkpoint\debug_kaplansky\k90d90r86f
+                                     exp_id: k90d90r86f
+                                     exp_name: debug_kaplansky
+                                     final_database_size: 250
+                                     gen_batch_size: 2000
+                                     global_rank: 0
+                                     is_master: True
+                                     is_slurm_job: False
+                                     learning_rate: 0.0005
+                                     local_rank: 0
+                                     master_port: -1
+                                     max_epochs: 3000
+                                     max_output_length: 1200
+                                     max_steps: 2000
+                                     multi_gpu: False
+                                     multi_node: False
+                                     n_embd: 64
+                                     n_embd2: 32
+                                     n_gpu_per_node: 1
+                                     n_head: 8
+                                     n_layer: 4
+                                     n_nodes: 1
+                                     n_tokens: 100
+                                     nb_local_searches: 160
+                                     nb_threads: 16
+                                     node_id: 0
+                                     num_initial_empty_objects: 1000
+                                     num_workers: 8
+                                     sample_only: 1000
+                                     seed: -1
+                                     target_db_size: 1000
+                                     temperature: 1.0
+                                     top_k: -1
+                                     type: transformer
+                                     weight_decay: 0.01
+                                     world_size: 1
+INFO - 01/19/25 05:10:19 - 0:00:00 - The experiment will be stored in checkpoint\debug_kaplansky\k90d90r86f
+                                     
+INFO - 01/19/25 05:10:19 - 0:00:00 - Running command: python C:\Users\Winston\Documents\Math-AI\transformers_math_experiments\fc_loop.py --num_initial_empty_objects=1000 --final_database_size=250 --target_db_size=1000 --sample-only=1000 --nb_threads=16 --nb_local_searches=160 --num-workers=8 --max-steps=2000 --max_epochs=3000 --seed=-1 --top-k=-1 --type=transformer --n-layer=4 --n-head=8 --n-embd=64 --n-embd2=32 --batch-size=32 --learning-rate=5e-4 --weight-decay=0.01 --max-output-length=1200 --gen_batch_size=2000 --n_tokens=100 --temperature=1.0 --dump_path=checkpoint --exp_name=debug_kaplansky --local_rank=-1 --master_port=-1 --debug_slurm=False
+
+INFO - 01/19/25 05:10:19 - 0:00:00 - seed: 440732449
+INFO - 01/19/25 05:10:19 - 0:00:00 - JULIA_NUM_THREADS is set to 16
+INFO - 01/19/25 05:13:17 - 0:02:57 - Created checkpoint\debug_kaplansky\k90d90r86f\temp.txt and training tokenizer...
+INFO - 01/19/25 05:13:17 - 0:02:57 - Directory 'checkpoint\debug_kaplansky\k90d90r86f/tokenizer_data' created.
+INFO - 01/19/25 05:13:17 - 0:02:58 - File 'checkpoint\debug_kaplansky\k90d90r86f\temp.txt' has been deleted.
+INFO - 01/19/25 05:13:17 - 0:02:58 - 0 / 250
+INFO - 01/19/25 05:13:17 - 0:02:58 - initializing at generation: 1
+INFO - 01/19/25 05:13:17 - 0:02:58 - number of examples in the dataset: 250
+INFO - 01/19/25 05:13:17 - 0:02:58 - max word length: 360
+INFO - 01/19/25 05:13:17 - 0:02:58 - number of unique characters in the vocabulary: 5
+INFO - 01/19/25 05:13:17 - 0:02:58 - vocabulary:
+INFO - 01/19/25 05:13:17 - 0:02:58 - ['V0', 'V1', 'V2', 'V3', 'V4']
+INFO - 01/19/25 05:13:17 - 0:02:58 - split up the dataset into 225 training examples and 25 test examples
+INFO - 01/19/25 05:13:17 - 0:02:58 - dataset determined that: vocab_size=101, block_size=1201
+INFO - 01/19/25 05:13:17 - 0:02:58 - model #params: 289856
+INFO - 01/19/25 05:13:17 - 0:02:58 - ============ Start of generation 1 ============
+INFO - 01/19/25 05:13:17 - 0:02:58 - Memory allocated:  23.12MB, reserved: 42.00MB
+INFO - 01/19/25 05:13:17 - 0:02:58 - training
+INFO - 01/19/25 05:13:34 - 0:03:15 - step 0 | loss 4.6547 | step time 5540.92ms
+INFO - 01/19/25 05:20:08 - 0:09:49 - step 100 | loss 0.2319 | step time 3937.03ms
+INFO - 01/19/25 05:26:42 - 0:16:22 - step 200 | loss 0.1773 | step time 3938.51ms
+INFO - 01/19/25 05:33:15 - 0:22:56 - step 300 | loss 0.1537 | step time 3935.92ms
+INFO - 01/19/25 05:39:49 - 0:29:30 - step 400 | loss 0.1465 | step time 3940.03ms
+INFO - 01/19/25 05:46:23 - 0:36:04 - step 500 | loss 0.1466 | step time 3936.67ms
+INFO - 01/19/25 05:46:58 - 0:36:39 - step 500 train loss: 0.14506344497203827 test loss: 0.14749911427497864
+INFO - 01/19/25 05:46:58 - 0:36:39 - test loss 0.14749911427497864 is the best so far, saving model to checkpoint\debug_kaplansky\k90d90r86f\model.pt
+INFO - 01/19/25 05:54:00 - 0:43:41 - step 600 | loss 0.1440 | step time 4225.65ms
+INFO - 01/19/25 06:01:03 - 0:50:44 - step 700 | loss 0.1433 | step time 4224.72ms
+INFO - 01/19/25 06:08:05 - 0:57:46 - step 800 | loss 0.1386 | step time 4227.29ms
+INFO - 01/19/25 06:15:08 - 1:04:49 - step 900 | loss 0.1368 | step time 4225.59ms
+INFO - 01/19/25 06:22:10 - 1:11:51 - step 1000 | loss 0.1295 | step time 4224.06ms
+INFO - 01/19/25 06:22:32 - 1:12:12 - step 1000 train loss: 0.13276690244674683 test loss: 0.15359915792942047
+INFO - 01/19/25 06:29:34 - 1:19:15 - step 1100 | loss 0.1259 | step time 4224.05ms
+INFO - 01/19/25 06:36:37 - 1:26:17 - step 1200 | loss 0.1193 | step time 4225.36ms
+INFO - 01/19/25 06:43:39 - 1:33:20 - step 1300 | loss 0.1139 | step time 4224.29ms
+INFO - 01/19/25 06:50:42 - 1:40:22 - step 1400 | loss 0.1115 | step time 4226.96ms
+INFO - 01/19/25 06:57:44 - 1:47:25 - step 1500 | loss 0.0956 | step time 4226.59ms
+INFO - 01/19/25 06:58:05 - 1:47:46 - step 1500 train loss: 0.09981933236122131 test loss: 0.19938936829566956
+INFO - 01/19/25 07:05:08 - 1:54:49 - step 1600 | loss 0.1007 | step time 4223.91ms
+INFO - 01/19/25 07:12:10 - 2:01:51 - step 1700 | loss 0.0812 | step time 4224.37ms
+INFO - 01/19/25 07:19:13 - 2:08:54 - step 1800 | loss 0.0761 | step time 4221.91ms
+INFO - 01/19/25 07:26:15 - 2:15:56 - step 1900 | loss 0.0705 | step time 4223.54ms
+INFO - 01/19/25 07:33:14 - 2:22:54 - Memory allocated:  58.11MB, reserved: 20226.00MB
+INFO - 01/19/25 07:33:14 - 2:22:54 - generating
