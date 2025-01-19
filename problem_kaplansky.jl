@@ -9,8 +9,9 @@ const M = 8
 const N = 5
 const MAX_GLUING_NUM = floor(Int, (M*N + 1)/2) # Number of 2-cells in a refined taiko, also the maximum possible gluing number of a horizontal edge.
 const REFINE_ATTEMPTS = min(2 ^ floor((M*N + 1)/2), 1000) # Number of attempts the greedy search takes to refine a taiko.
+const WEIGHT_FUNC = edge_data -> 1.0
 
-function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}
+function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}
     """
     Returns a MetaGraph indicating an error occurred with generating a colored oriented taiko.
 
@@ -21,11 +22,12 @@ function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, S
         label_type=String,
         vertex_data_type=Int,
         edge_data_type=MVector{2, Int64},
-        graph_data=error_msg
+        graph_data=error_msg,
+        weight_function=WEIGHT_FUNC
     )
 end
 
-function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}
+function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}
     """
     Helper function to convert partitions (in string format) into digraphs.
 
@@ -63,7 +65,7 @@ function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGrap
         end
     end
 
-    graph = MetaGraph(complete_bipartite_graph(M,N), vertices_description, edges_description, "color+orientation")
+    graph = MetaGraph(complete_bipartite_graph(M,N), vertices_description, edges_description, "color+orientation",WEIGHT_FUNC)
 
     # Add edges to form horizontal graphs L_A and L_B
     index = 1
@@ -96,7 +98,7 @@ function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGrap
     return graph
 end
 
-function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})::String
+function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})::String
     """
     Helper function to convert graphs into partitions (in string format).
 
@@ -134,7 +136,7 @@ function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, Str
     return chop(join(entries))
 end
 
-function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
+function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
     """
     Returns true if the given 2-cell with given orientation can be added to the taiko, false otherwise.
 
@@ -206,7 +208,7 @@ function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
     end
 end
 
-function add_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
+function add_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
     """
     Attempts to add the given oriented 2-cell. Returns true if successful, false otherwise.
     """
@@ -316,7 +318,7 @@ function add_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64
     return true
 end
 
-function two_cell_in_taiko(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}, i1::Int, i2::Int, j1::Int, j2::Int)::Bool
+function two_cell_in_taiko(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int)::Bool
     """
     Returns true if valid oriented 2-cell currently in the taiko, false otherwise.
     """
@@ -346,7 +348,7 @@ function two_cell_in_taiko(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, I
     return true
 end
 
-function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64}, i1::Int, i2::Int, j1::Int, j2::Int)
+function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int)
     """
     Helper function to remove a given 2-cell from the given structure.
 
@@ -372,7 +374,7 @@ function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
     end
 end
 
-function no_fold(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})::Bool
+function no_fold(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})::Bool
     """
     Returns true if the no_fold condition holds, false otherwise.
     """
@@ -418,7 +420,7 @@ function no_fold(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVec
     return true
 end
 
-function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})
+function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})
     """
     Forces the given graph to obey the no-fold condition by removing bad 2-cells.
 
@@ -594,7 +596,7 @@ function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64
     end
 end
 
-function no_pattern(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})::Bool
+function no_pattern(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})::Bool
     """
     Returns true if the no_pattern condition holds, false otherwise.
     """
@@ -689,7 +691,7 @@ function no_pattern(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, M
     return true
 end
 
-function find_repeated_patterns(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})::Dict{Pair{Int, Int}, Vector{Pair{Pair{String, String}, Pair{String, String}}}}
+function find_repeated_patterns(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})::Dict{Pair{Int, Int}, Vector{Pair{Pair{String, String}, Pair{String, String}}}}
     """
     Finds repeated patterns and returns the pairs of edges realizing the repeated patterns.
     """
@@ -794,7 +796,7 @@ function find_repeated_patterns(graph::MetaGraph{Int64, SimpleGraph{Int64}, Stri
     return repeated_patterns
 end
 
-function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, MetaGraphsNext.var"#15#17", Float64})
+function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})
     """
     Forces the given graph to obey the no-pattern condition by removing bad 2-cells.
 
@@ -926,7 +928,7 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
 
     # Reject any obviously wrong input (wrong length, too many 2-cells)
     if graph[] == "input error"
-        return []
+        return ["error"]
     end
 
     # Fix partition
@@ -1060,7 +1062,14 @@ function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
     In our case, calculates the min(girth(L_A), girth(L_B)) if input is a PI struct, or 0 if input is not a PI struct.
     Note that we can bound girth calculations to girths of at most 6 since we win if we reach girth 6.
     """
+    if occursin("error", obj)
+        return -1
+    end
+
     graph = convert_string_to_graph(obj)
+    if occursin("error", graph[])
+        return -1
+    end
     two_cells = parse.(Int, split(obj, ","))
     if count(x -> x != 0, two_cells) != MAX_GLUING_NUM || !no_fold(graph) || !no_pattern(graph)
         return 0

@@ -38,7 +38,7 @@ function main()
     end
 
     empty_graph_str = empty_starting_point()
-    # graph2 = greedy_search_from_startpoint(0, empty_graph_str)
+    # graph2_str = greedy_search_from_startpoint(0, empty_graph_str)[1]
     # println(graph2_str)
     # num_two_cells = count(x -> x != 0, parse.(Int, split(convert_graph_to_string(graph), ",")))
     # println(num_two_cells)
