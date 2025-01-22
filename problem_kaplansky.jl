@@ -5,10 +5,10 @@ using StaticArrays
 
 include("constants.jl")
 
-const M = 6
-const N = 4
-const MAX_GLUING_NUM = floor(Int, (M*N + 1)/2) # Number of 2-cells in a refined taiko, also the maximum possible gluing number of a horizontal edge.
-const REFINE_ATTEMPTS = min(2 ^ floor((M*N + 1)/2), 2000) # Number of attempts the greedy search takes to refine a taiko.
+const M = 8
+const N = 5
+const MAX_GLUING_NUM = floor(Int, (M*N)/2) # Number of 2-cells in a refined taiko, also the maximum possible gluing number of a horizontal edge.
+const REFINE_ATTEMPTS = min(2 ^ floor((M*N)/2), 2000) # Number of attempts the greedy search takes to refine a taiko.
 const WEIGHT_FUNC = edge_data -> 1.0
 
 function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}
@@ -54,7 +54,7 @@ function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGrap
     end
 
     for j in 1:N
-        vertices_description[j+M] = "b$(j)" => 1
+        vertices_description[j+M] = "b$j" => 1
     end
 
     # Initialize edge label-data pairs
@@ -118,7 +118,7 @@ function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, Str
 
     entries = []
     for i1 in 1:M
-        for i2 in i1+1:M
+        for i2 in (i1+1):M
             for j1 in 1:N
                 for j2 in 1:N
                     if j1 != j2
@@ -157,6 +157,8 @@ function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
         if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
             if sign(graph[label_for(graph, i1),label_for(graph, i2)][1]) != sign(graph[label_for(graph, j1+M),label_for(graph, j2+M)][1])
                 return false
+            elseif orientation != sign(graph[label_for(graph, i1),label_for(graph, i2)][1])
+                return false
             else
                 return true
             end
@@ -183,6 +185,8 @@ function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
         # Both horizontal edges filled in, check if orientation match and return false if otherwise
         if has_edge(graph, i1, i2) && has_edge(graph, j1 + M, j2 + M)
             if sign(graph[label_for(graph, i1),label_for(graph, i2)][1]) != -1 * sign(graph[label_for(graph, j1+M),label_for(graph, j2+M)][1])
+                return false
+            elseif orientation != sign(graph[label_for(graph, i1),label_for(graph, i2)][1])
                 return false
             else
                 return true
@@ -211,6 +215,9 @@ end
 function add_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
     """
     Attempts to add the given oriented 2-cell. Returns true if successful, false otherwise.
+
+    Note: In general, adding a 2-cell is NOT invertible. Whenever adding a 2-cell causes other horizontal edges to be recolored,
+    we cannot undo adding the 2-cell.
     """
     # 2-cell is in taiko, b graph orientation same
     if j1 < j2
@@ -271,10 +278,10 @@ function add_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64
                 new_color = min(abs(graph[label_for(graph, i1),label_for(graph, i2)][1]), abs(graph[label_for(graph, j1+M),label_for(graph, j2+M)][1]))
                 old_color = max(abs(graph[label_for(graph, i1),label_for(graph, i2)][1]), abs(graph[label_for(graph, j1+M),label_for(graph, j2+M)][1]))
 
-                for (v1, v2) in edge_labels(graph)
-                    if abs(graph[v1, v2][1]) == old_color
-                        sign_mod = sign(graph[v1, v2][1])
-                        graph[v1, v2][1] = sign_mod * new_color
+                for edge in edge_labels(graph)
+                    if abs(graph[edge[1], edge[2]][1]) == old_color
+                        sign_mod = sign(graph[edge[1], edge[2]][1])
+                        graph[edge[1], edge[2]][1] = sign_mod * new_color
                     end
                 end
 
@@ -351,6 +358,9 @@ end
 function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int)
     """
     Helper function to remove a given 2-cell from the given structure.
+
+    Note that there are many possible colorings that can be used after removing the 2-cell.
+    This method removes the 2-cell while changing as few colors as possible.
 
     i1, i2 are integers between 1 and M.
     j1, j2 are integers between 1 and N.
@@ -964,33 +974,36 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     # (2) adding 2-cells to refine the taiko
     starting_graph = copy(graph)
     num_two_cells = 0
-    for _ in 1:REFINE_ATTEMPTS
+    allowed_two_cells = Vector{SVector{5, Int}}()
+    # added_two_cells = Vector{SVector{5, Int}}() #DEBUG
+    for attempt in 1:REFINE_ATTEMPTS
         graph = copy(starting_graph)
-        allowed_two_cells = Vector{SVector{5, Int}}()
+        empty!(allowed_two_cells)
+        # empty!(added_two_cells) # DEBUG
         push!(allowed_two_cells, SVector(0,0,0,0,1))
         num_two_cells = count(x -> x != 0, parse.(Int, split(convert_graph_to_string(graph), ",")))
 
         # Keep adding 2-cells until we are no longer able to without violating no_fold and no_pattern
         while num_two_cells < MAX_GLUING_NUM && !isempty(allowed_two_cells)
-            allowed_two_cells = Vector{SVector{5, Int}}()
+            empty!(allowed_two_cells)
             for i1 in 1:M
-                for i2 in i1+1:M
+                for i2 in (i1+1):M
                     for j1 in 1:N
                         for j2 in 1:N
                             if can_add_two_cell(graph, i1, i2, j1, j2, 1)
-                                add_two_cell!(graph, i1, i2, j1, j2, 1)
-                                if no_fold(graph) && no_pattern(graph)
+                                child_graph = copy(graph)
+                                add_two_cell!(child_graph, i1, i2, j1, j2, 1)
+                                if no_fold(child_graph) && no_pattern(child_graph)
                                     push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, 1))
                                 end
-                                remove_two_cell!(graph, i1, i2, j1, j2)
                             end
 
                             if can_add_two_cell(graph, i1, i2, j1, j2, -1)
-                                add_two_cell!(graph, i1, i2, j1, j2, -1)
-                                if no_fold(graph) && no_pattern(graph)
+                                child_graph = copy(graph)
+                                add_two_cell!(child_graph, i1, i2, j1, j2, -1)
+                                if no_fold(child_graph) && no_pattern(child_graph)
                                     push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, -1))
                                 end
-                                remove_two_cell!(graph, i1, i2, j1, j2)
                             end
                         end
                     end
@@ -1000,7 +1013,9 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
             if !isempty(allowed_two_cells)
                 two_cell_choice = rand(allowed_two_cells)
                 add_two_cell!(graph, two_cell_choice[1], two_cell_choice[2], two_cell_choice[3], two_cell_choice[4], two_cell_choice[5])
-                num_two_cells = count(x -> x != 0, parse.(Int, split(convert_graph_to_string(graph), ",")))
+                # push!(added_two_cells, two_cell_choice) #DEBUG
+                graph_str = convert_graph_to_string(graph)
+                num_two_cells = count(x -> x != 0, parse.(Int, split(graph_str, ",")))
             end
         end
 
@@ -1010,6 +1025,7 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
         end
     end
 
+    # println(added_two_cells) # DEBUG
     # Unable to refine graph without introducing folds/repeated_patterns in the given number of attempts
     if num_two_cells < MAX_GLUING_NUM
         return [convert_graph_to_string(graph)]
@@ -1062,6 +1078,8 @@ function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
     In our case, calculates the min(girth(L_A), girth(L_B)) if input is a PI struct, or 0 if input is not a PI struct.
     Note that we can bound girth calculations to girths of at most 6 since we win if we reach girth 6.
     """
+
+    # obj came from trying greedy search on an invalid taiko
     if occursin("error", obj)
         return -1
     end
