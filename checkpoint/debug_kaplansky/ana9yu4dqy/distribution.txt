@@ -1,0 +1,3 @@
+Score: 3.0, Count: 80
+Score: 0.0, Count: 2
+Score: -1.0, Count: 918

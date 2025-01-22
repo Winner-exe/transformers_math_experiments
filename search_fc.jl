@@ -14,7 +14,8 @@ using Dates
 #include("problem_triangle_free.jl")
 #include("problem_4_cycle_free.jl")
 #include("problem_permanent_avoid_123.jl")
-include("problem_kaplansky.jl")
+#("problem_kaplansky.jl")
+include("problem_kaplansky_num_two_cells.jl")
 
 
 #########################################################################################
