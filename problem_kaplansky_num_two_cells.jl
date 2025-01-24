@@ -904,7 +904,7 @@ function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
     end
 end
 
-function left_align(i1::Int, i2::Int, j1::Int, j2::Int, lambda_a::Int, lambda_b::Int)::SVector{5, Int}
+function is_left_aligned(i1::Int, i2::Int, j1::Int, j2::Int, lambda_a::Int, lambda_b::Int)::Bool
     """
     Takes as input a 2-cell (i1, i2, j1, j2) and integers lambda_a and lambda_b.
 
@@ -915,13 +915,13 @@ function left_align(i1::Int, i2::Int, j1::Int, j2::Int, lambda_a::Int, lambda_b:
 
     if i1 > lambda_a + 1
         return false
-    elseif i2 > lambda_a + 1
+    elseif i2 > lambda_a + 1 && i2 > i1 + 1
         return false
     end
 
     if j1 > lambda_b + 1
         return false
-    elseif j2 > lambda_b + 1
+    elseif j2 > lambda_b + 1 && j2 > j1 + 1
         return false
     end
 
@@ -951,14 +951,8 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     No-fold and no-pattern are checked after graph construction, so modifications are made at the graph level.
     Note that removing a 2-cell will never make it violate partition or orientation conditions any more than it already does.
 
-    (2) Add allowed 2-cells randomly until structure is a taiko. Ensure after each step that the structure is still orientable, no-fold, and no-pattern.
-    (i.e. If adding a 2-cell violates any of these conditions, undo. If there are no more moves left, backtrack. (use a memory stack for this))
-
-    (3) Find (an instance of) the shortest cycle, remove the least frequent edge by merging two 2-cells and splitting in the "opposite" way.
-
-    (4) Do similar operations to ensure orientable, no-fold, and no-pattern are satisfied.
-
-    Potentially branch out and list many different ways of accomplishing (1) and (2).
+    (2) Add allowed 2-cells randomly until there are no moves left. Ensure after each step that the structure is still orientable, no-fold, and no-pattern.
+    Only add left-aligned cells to prune the search space.
     """
     graph = convert_string_to_graph(obj)
     # current_reward = reward_calc(obj)
@@ -1001,7 +995,7 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     # (2) adding 2-cells to refine the taiko
     num_two_cells = 0
     allowed_two_cells = Vector{SVector{5, Int}}()
-    added_two_cells = Vector{SVector{5, Int}}() # FIX: Make this the list of 2-cells currently in the taiko
+    two_cell_list = Vector{SVector{5, Int}}() # FIX: Make this the list of 2-cells currently in the taiko
     push!(allowed_two_cells, SVector(0,0,0,0,1))
     num_two_cells = count(x -> x != 0, parse.(Int, split(convert_graph_to_string(graph), ",")))
 
@@ -1009,23 +1003,51 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
     # FIX: Implement search for only left-aligned 2-cells
     while num_two_cells < MAX_GLUING_NUM && !isempty(allowed_two_cells)
         empty!(allowed_two_cells)
-        for i1 in 1:M
-            for i2 in (i1+1):M
-                for j1 in 1:N
-                    for j2 in 1:N
-                        if can_add_two_cell(graph, i1, i2, j1, j2, 1)
-                            child_graph = copy(graph)
-                            add_two_cell!(child_graph, i1, i2, j1, j2, 1)
-                            if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
-                                push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, 1))
-                            end
-                        end
+        # Compute lambda_a and lambda_b
+        lambda_a = 0
+        lambda_b = 0
+        for two_cell in two_cell_list
+            if two_cell[1] > lambda_a
+                lambda_a = two_cell[1]
+            end
 
-                        if can_add_two_cell(graph, i1, i2, j1, j2, -1)
-                            child_graph = copy(graph)
-                            add_two_cell!(child_graph, i1, i2, j1, j2, -1)
-                            if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
-                                push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, -1))
+            if two_cell[2] > lambda_b
+                lambda_b = two_cell[2]
+            end
+
+            if two_cell[3] > lambda_a
+                lambda_a = two_cell[3]
+            end
+
+            if two_cell[4] > lambda_b
+                lambda_b = two_cell[4]
+            end
+        end
+        I1 = min(lambda_a+1, M)
+        I2 = min(lambda_a+2, M)
+        J1 = min(lambda_b+1, N)
+        J2 = min(lambda_b+2, N)
+
+        # Search for allowed left-aligned 2-cells
+        for i1 in 1:I1
+            for i2 in (i1+1):I2
+                for j1 in 1:J1
+                    for j2 in 1:J2
+                        if is_left_aligned(i1, i2, j1, j2, lambda_a, lambda_b)
+                            if can_add_two_cell(graph, i1, i2, j1, j2, 1)
+                                child_graph = copy(graph)
+                                add_two_cell!(child_graph, i1, i2, j1, j2, 1)
+                                if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
+                                    push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, 1))
+                                end
+                            end
+
+                            if can_add_two_cell(graph, i1, i2, j1, j2, -1)
+                                child_graph = copy(graph)
+                                add_two_cell!(child_graph, i1, i2, j1, j2, -1)
+                                if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
+                                    push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, -1))
+                                end
                             end
                         end
                     end
@@ -1033,16 +1055,17 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
             end
         end
 
+        # Choose a random 2-cell (if any) and add it to the graph.
         if !isempty(allowed_two_cells)
             two_cell_choice = rand(allowed_two_cells)
             add_two_cell!(graph, two_cell_choice[1], two_cell_choice[2], two_cell_choice[3], two_cell_choice[4], two_cell_choice[5])
-            push!(added_two_cells, two_cell_choice)
+            push!(two_cell_list, two_cell_choice)
             graph_str = convert_graph_to_string(graph)
             num_two_cells = count(x -> x != 0, parse.(Int, split(graph_str, ",")))
         end
     end
 
-    # println(added_two_cells) # DEBUG
+    # println(two_cell_list) # DEBUG
     return [convert_graph_to_string(graph)]
 end
 
