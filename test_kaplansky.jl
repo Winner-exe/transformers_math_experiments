@@ -19,7 +19,7 @@ function generate_random_taiko()
    println(graph)
    println(graph_str)
 
-   num_two_cells = count(x -> x != 0, parse.(Int, split(graph_str, ",")))
+   num_two_cells = count(isequal('('), graph_str)
    println(num_two_cells)
    println(reward_calc(graph_str))
 end

@@ -1,6 +1,7 @@
 using DataStructures
 using Graphs
 using MetaGraphsNext
+using IterTools
 using StaticArrays
 
 include("constants.jl")
@@ -9,6 +10,34 @@ const M = 14
 const N = 13
 const MAX_GLUING_NUM = floor(Int, (M*N)/2) # Number of 2-cells in a refined taiko, also the maximum possible gluing number of a horizontal edge.
 const WEIGHT_FUNC = edge_data -> 1.0
+
+# Compute index maps between indices and vertical edges:
+function index_to_edge()::MVector{M*N, Pair{Int,Int}}
+    map = MVector{M*N, Pair{Int,Int}}(0 => 0 for _ in 1:M*N)
+    index = 1
+    for i in 1:M
+        for j in 1:N
+            map[index] = i => j
+            index += 1
+        end
+    end
+    return map
+end
+
+function edge_to_index()::Dict{Pair{Int,Int}, Int}
+    map = Dict{Pair{Int,Int}, Int}()
+    index = 1
+    for i in 1:M
+        for j in 1:N
+            map[i => j] = index
+            index += 1
+        end
+    end
+    return map
+end
+
+const INDEX_TO_EDGE = index_to_edge()
+const EDGE_TO_INDEX = edge_to_index()
 
 """
 Setup based on the algorithm described in Section 3 of the recent paper by Garg and Minyev: https://arxiv.org/abs/2501.07646
@@ -30,6 +59,34 @@ function graph_error(error_msg::String, problem_cell=0::Int)::MetaGraph{Int64, S
     )
 end
 
+function convert_edges_to_two_cell(e1_index::Int, e2_index::Int)::SVector{5,Int}
+    e1 = INDEX_TO_EDGE[e1_index]
+    e2 = INDEX_TO_EDGE[e2_index]
+    i1 = e1[1]
+    j1 = e1[2]
+    i2 = e2[1]
+    j2 = e2[2]
+    orientation = 1
+    if i1 > i2
+        i1, i2 = i2, i1
+        j1, j2 = j2, j1
+        orientation = -1
+    end
+
+    return SVector{5,Int}(i1, i2, j1, j2, orientation)
+end
+
+function convert_two_cell_to_edges(i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Pair{Int,Int}
+    e1_index = EDGE_TO_INDEX[i1 => j1]
+    e2_index = EDGE_TO_INDEX[i2 => j2]
+
+    if orientation < 0
+        e1_index, e2_index = e2_index, e1_index
+    end
+
+    return e1_index => e2_index
+end
+
 function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}
     """
     Helper function to convert partitions (in string format) into digraphs.
@@ -43,61 +100,53 @@ function convert_string_to_graph(graph_str::String)::MetaGraph{Int64, SimpleGrap
     Otherwise, returns the full colored and oriented taiko.
     """
     # Parse string and verify input length
-    two_cells = parse.(Int, split(graph_str, ","))
-    if size(two_cells, 1) != Int((M*N)*(M-1)*(N-1)/2)
+    two_cells = parse.(Int, split(graph_str, r"[,()]", keepempty=false))
+    if size(two_cells, 1) % 2 != 0
         return graph_error("input error")
-    elseif count(x -> x != 0, two_cells) > MAX_GLUING_NUM
+    elseif size(two_cells, 1) / 2 > MAX_GLUING_NUM
+        return graph_error("input error")
+    elseif any(x -> x < 1 || x > M*N, two_cells)
         return graph_error("input error")
     end
 
     # Intialize vertex label-data pairs
     vertices_description = Array{Pair{String, Int}, 1}(undef, M+N)
     for i in 1:M
-        vertices_description[i] = "a$i" => 1
+        vertices_description[i] = "a" * string(i) => 1
     end
 
     for j in 1:N
-        vertices_description[j+M] = "b$j" => 1
+        vertices_description[j+M] = "b" * string(j) => 1
     end
 
     # Initialize edge label-data pairs
     edges_description = Array{Pair{Tuple{String,String}, MVector{2, Int}}}(undef, M*N)
     for i in 1:M
         for j in 1:N
-            edges_description[(i-1)*N + j] = ("a$i", "b$j") => MVector(0, 1)
+            edges_description[(i-1)*N + j] = ("a" * string(i), "b" * string(j)) => MVector(0, 1)
         end
     end
 
     graph = MetaGraph(complete_bipartite_graph(M,N), vertices_description, edges_description, "color+orientation",WEIGHT_FUNC)
 
     # Add edges to form horizontal graphs L_A and L_B
-    index = 1
 
     # Check valid 2-cells
-    for i1 in 1:M
-        for i2 in (i1+1):M
-            for j1 in 1:N
-                for j2 in 1:N
-                    if j1 != j2
-                        # 2-cell not in taiko
-                        if two_cells[index] == 0
-                            index += 1
-                        # 2-cell is in taiko but violates partition condition
-                        elseif graph[label_for(graph, i1),label_for(graph, j1+M)][1] != 0 || graph[label_for(graph, i2),label_for(graph, j2+M)][1] != 0
-                            return graph_error("partition error at $(index)")
-                        # 2-cell is in taiko, orientation-related error
-                        elseif !can_add_two_cell(graph, i1, i2, j1, j2, two_cells[index])
-                            return graph_error("orientation error at $(index)")
-                        # Can add two cell, so adds it.
-                        else
-                            add_two_cell!(graph, i1, i2, j1, j2, two_cells[index])
-                            index += 1
-                        end
-                    end
-                end
-            end
+    for (e1_index, e2_index) in partition(two_cells, 2)
+        i1, i2, j1, j2, orientation = convert_edges_to_two_cell(e1_index, e2_index)
+
+        # 2-cell is in taiko but violates partition condition
+        if graph[label_for(graph, i1),label_for(graph, j1+M)][1] != 0 || graph[label_for(graph, i2),label_for(graph, j2+M)][1] != 0
+            return graph_error("partition error at ($(e1_index), $(e2_index))")
+        # 2-cell is in taiko, orientation-related error
+        elseif !can_add_two_cell(graph, i1, i2, j1, j2, orientation)
+            return graph_error("orientation error at ($(e1_index), $(e2_index))")
+        # Can add two cell, so adds it.
+        else
+            add_two_cell!(graph, i1, i2, j1, j2, orientation)
         end
     end
+
     return graph
 end
 
@@ -105,10 +154,9 @@ function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, Str
     """
     Helper function to convert graphs into partitions (in string format).
 
-    Partitions are represented as strings of (M*N)(M-1)*(N-1)/2 integers separated by commas. The
-    string gives the upper triangular part of the adjacency matrix for the 2-skeleton of the
-    taiko. The sign of the integer corresponds to the orientation of the A-part of the 2-cell (1 for positive,
-    -1 for negative).
+    Partitions are represented as strings of integer pairs separated by commas. The
+    string lists the 2-cells, where each integer corresponds to a unique vertical edge and each pair of integers represents a
+    2-cell connecting the two vertical edges (ai1, bj1) and (ai2, bj2). The orientation is positive if i1<i2 and negative otherwise.
 
     Note that we can take a graph at any stage of the greedy search in here (even with unrefined partitions).
 
@@ -124,11 +172,13 @@ function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, Str
         for i2 in (i1+1):M
             for j1 in 1:N
                 for j2 in 1:N
-                    if j1 != j2
-                        if two_cell_in_taiko(graph, i1, i2, j1, j2)
-                            push!(entries, "$(sign(graph[label_for(graph, i1), label_for(graph, i2)][1])),")
+                    if j1 != j2 && two_cell_in_taiko(graph, i1, i2, j1, j2)
+                        if graph[label_for(graph, i1), label_for(graph, i2)][1] > 0
+                            push!(entries, "($(EDGE_TO_INDEX[i1 => j1]),")
+                            push!(entries, "$(EDGE_TO_INDEX[i2 => j2])),")
                         else
-                            push!(entries, "0,")
+                            push!(entries, "($(EDGE_TO_INDEX[i2 => j2]),")
+                            push!(entries, "$(EDGE_TO_INDEX[i1 => j1])),")
                         end
                     end
                 end
@@ -137,6 +187,50 @@ function convert_graph_to_string(graph::MetaGraph{Int64, SimpleGraph{Int64}, Str
     end
 
     return chop(join(entries))
+end
+
+function update_graph!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, two_cell_list::Vector{SVector{5,Int}})::Bool
+    # Remove all horizontal edges
+    for i1 in 1:M
+        for i2 in (i1+1):M
+            if has_edge(graph, i1, i2)
+                rem_edge!(graph, i1, i2)
+            end
+        end
+    end
+
+    for j1 in 1:N
+        for j2 in (j1+1):N
+            if has_edge(graph, j1+M, j2+M)
+                rem_edge!(graph, j1+M, j2+M)
+            end
+        end
+    end
+
+    # Decolor all vertical edges
+    for i in 1:M
+        for j in 1:N
+            graph[label_for(graph, i), label_for(graph, j + M)][1] = 0
+        end
+    end
+
+    # Add 2-cells according to list
+    for two_cell in two_cell_list
+        i1, i2, j1, j2, orientation = two_cell[1], two_cell[2], two_cell[3], two_cell[4], two_cell[5]
+
+        # 2-cell is in taiko but violates partition condition
+        if graph[label_for(graph, i1),label_for(graph, j1+M)][1] != 0 || graph[label_for(graph, i2),label_for(graph, j2+M)][1] != 0
+            return false
+        # 2-cell is in taiko, orientation-related error
+        elseif !can_add_two_cell(graph, i1, i2, j1, j2, orientation)
+            return false
+        # Can add two cell, so adds it.
+        else
+            add_two_cell!(graph, i1, i2, j1, j2, orientation)
+        end
+    end
+
+    return true
 end
 
 function can_add_two_cell(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int, orientation::Int)::Bool
@@ -358,33 +452,20 @@ function two_cell_in_taiko(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, I
     return true
 end
 
-function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int)
+function remove_two_cell!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, i1::Int, i2::Int, j1::Int, j2::Int, two_cell_list::Vector{SVector{5, Int}})
     """
     Helper function to remove a given 2-cell from the given structure.
 
     Note that there are many possible colorings that can be used after removing the 2-cell.
-    This method removes the 2-cell while changing as few colors as possible.
+    This method removes the 2-cell from a given list of 2-cells (the history of cell additions),
+    then updates the graph to match the new list of 2-cells.
 
     i1, i2 are integers between 1 and M.
     j1, j2 are integers between 1 and N.
     """
 
-    # Remove colors on bipartite edges
-    graph[label_for(graph, i1), label_for(graph, j1+M)][1] = 0
-    graph[label_for(graph, i2), label_for(graph, j2+M)][1] = 0
-
-    # Remove the copies of the horizontal edges
-    if graph[label_for(graph, i1), label_for(graph, i2)][2] > 1
-        graph[label_for(graph, i1), label_for(graph, i2)][2] -= 1
-    else
-        rem_edge!(graph, i1, i2)
-    end
-
-    if graph[label_for(graph, j1+M), label_for(graph, j2+M)][2] > 1
-        graph[label_for(graph, j1+M), label_for(graph, j2+M)][2] -= 1
-    else
-        rem_edge!(graph, j1 + M, j2 + M)
-    end
+    filter!(cell -> cell[1] != i1 || cell[2] != i2 || cell[3] != j1 || cell[4] != j2, two_cell_list)
+    update_graph!(graph, two_cell_list)
 end
 
 function no_fold(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})::Bool
@@ -433,7 +514,7 @@ function no_fold(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVec
     return true
 end
 
-function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})
+function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, two_cell_list::Vector{SVector{5, Int}})
     """
     Forces the given graph to obey the no-fold condition by removing bad 2-cells.
 
@@ -513,7 +594,7 @@ function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64
             j1_choice = two_cell_choice[1]
             j2_choice = two_cell_choice[2]
 
-            remove_two_cell!(graph, i1, i2_choice, j1_choice, j2_choice)
+            remove_two_cell!(graph, i1, i2_choice, j1_choice, j2_choice, two_cell_list)
 
             if !has_edge(graph, i1, i2)
                 if fold_colors[color_choice] == 1
@@ -595,7 +676,7 @@ function remove_folds!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64
             i1_choice = two_cell_choice[1]
             i2_choice = two_cell_choice[2]
 
-            remove_two_cell!(graph, i1_choice, i2_choice, j1, j2_choice)
+            remove_two_cell!(graph, i1_choice, i2_choice, j1, j2_choice, two_cell_list)
 
             # Update fold_colors dict
             if !has_edge(graph, j1+M, j2_choice+M)
@@ -809,7 +890,7 @@ function find_repeated_patterns(graph::MetaGraph{Int64, SimpleGraph{Int64}, Stri
     return repeated_patterns
 end
 
-function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64})
+function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, Int64, MVector{2, Int64}, String, typeof(WEIGHT_FUNC), Float64}, two_cell_list::Vector{SVector{5, Int}})
     """
     Forces the given graph to obey the no-pattern condition by removing bad 2-cells.
 
@@ -870,7 +951,7 @@ function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
                 j1_choice = two_cell_choice[1]
                 j2_choice = two_cell_choice[2]
 
-                remove_two_cell!(graph, i1, i2, j1_choice, j2_choice)
+                remove_two_cell!(graph, i1, i2, j1_choice, j2_choice, two_cell_list)
 
                 # Update repeated_patterns dict
                 repeated_patterns = find_repeated_patterns(graph)
@@ -895,7 +976,7 @@ function remove_patterns!(graph::MetaGraph{Int64, SimpleGraph{Int64}, String, In
                 i1_choice = two_cell_choice[1]
                 i2_choice = two_cell_choice[2]
 
-                remove_two_cell!(graph, i1_choice, i2_choice, j1, j2)
+                remove_two_cell!(graph, i1_choice, i2_choice, j1, j2, two_cell_list)
 
                 # Update repeated_patterns dict. Note that we call find_repeated_patterns in case the 2-cell removed multiple patterns.
                 repeated_patterns = find_repeated_patterns(graph)
@@ -962,46 +1043,71 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
         return ["error"]
     end
 
+    two_cells_raw = parse.(Int, split(obj, r"[,()]", keepempty=false))
+    two_cell_list = Vector{SVector{5, Int}}()
+
+    for (e1_index, e2_index) in partition(two_cells_raw, 2)
+        e1 = INDEX_TO_EDGE[e1_index]
+        e2 = INDEX_TO_EDGE[e2_index]
+        i1 = e1[1]
+        j1 = e1[2]
+        i2 = e2[1]
+        j2 = e2[2]
+        orientation = 1
+        if i1 > i2
+            i1, i2 = i2, i1
+            j1, j2 = j2, j1
+            orientation = -1
+        end
+
+        push!(two_cell_list, SVector{5, Int}(i1, i2, j1, j2, orientation))
+    end
+
     # Fix partition
     while occursin(graph[], "partition error")
-        two_cells = split(obj, ",")
-        index = parse(Int, last(graph[], 1))
-        two_cells[index] = "0"
+        two_cell_str = match(r"([0-9]*,[0-9]*)", graph[])
+        two_cell = parse.(Int, split(two_cell_str, r",()", keepempty=false))
+        i1, i2, j1, j2, orientation = convert_edges_to_two_cell(two_cell[1], two_cell[2])
 
-        graph = convert_string_to_graph(join(two_cells, ","))
+        filter!(cell => cell[1] != i1 || cell[2] != i2 || cell[3] != j1 || cell[4] != j2, two_cell_list)
+        update_graph!(graph, two_cell_list)
     end
 
     # Fix orientation
     while occursin(graph[], "orientation error")
-        two_cells = split(obj, ",")
-        index = parse(Int, last(graph[], 1))
-        two_cells[index] = string(-1 * parse(Int, two_cells[index]))
+        two_cell_str = match(r"([0-9]*,[0-9]*)", graph[])
+        two_cell = parse.(Int, split(two_cell_str, r",()", keepempty=false))
+        i1, i2, j1, j2, orientation = convert_edges_to_two_cell(two_cell[1], two_cell[2])
 
-        graph = convert_string_to_graph(join(two_cells, ","))
+        filter!(cell => cell[1] != i1 || cell[2] != i2 || cell[3] != j1 || cell[4] != j2, two_cell_list)
+        push!(two_cell_list, SVector{5, Int}(i1, i2, j1, j2, orientation * (-1)))
+        update_graph!(graph, two_cell_list)
 
         if occursin(graph[], "orientation error")
-            two_cells = split(obj, ",")
-            index = parse(Int, last(graph[], 1))
-            two_cells[index] = "0"
+            two_cell_str = match(r"([0-9]*,[0-9]*)", graph[])
+            two_cell = parse.(Int, split(two_cell_str, r",()", keepempty=false))
+            i1, i2, j1, j2, orientation = convert_edges_to_two_cell(two_cell[1], two_cell[2])
 
-            graph = convert_string_to_graph(join(two_cells, ","))
+            filter!(cell => cell[1] != i1 || cell[2] != i2 || cell[3] != j1 || cell[4] != j2, two_cell_list)
+            update_graph!(graph, two_cell_list)
         end
     end
 
     # Remove folds and patterns
-    remove_folds!(graph)
-    remove_patterns!(graph)
+    remove_folds!(graph, two_cell_list)
+    remove_patterns!(graph, two_cell_list)
 
     # (2) adding 2-cells to refine the taiko
     num_two_cells = 0
     allowed_two_cells = Vector{SVector{5, Int}}()
-    two_cell_list = Vector{SVector{5, Int}}() # FIX: Make this the list of 2-cells currently in the taiko
     push!(allowed_two_cells, SVector(0,0,0,0,1))
-    num_two_cells = count(x -> x != 0, parse.(Int, split(convert_graph_to_string(graph), ",")))
+    num_two_cells = size(two_cell_list, 1)
 
     # Keep adding 2-cells until we are no longer able to without violating no_fold and no_pattern
-    # FIX: Implement search for only left-aligned 2-cells
     while num_two_cells < MAX_GLUING_NUM && !isempty(allowed_two_cells)
+        # readline() # DEBUG
+        # println(two_cell_list) # DEBUG
+        # println(convert_graph_to_string(graph))
         empty!(allowed_two_cells)
         # Compute lambda_a and lambda_b
         lambda_a = 0
@@ -1035,19 +1141,21 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
                     for j2 in 1:J2
                         if is_left_aligned(i1, i2, j1, j2, lambda_a, lambda_b)
                             if can_add_two_cell(graph, i1, i2, j1, j2, 1)
-                                child_graph = copy(graph)
-                                add_two_cell!(child_graph, i1, i2, j1, j2, 1)
-                                if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
+                                add_two_cell!(graph, i1, i2, j1, j2, 1)
+                                push!(two_cell_list, SVector{5, Int}(i1, i2, j1, j2, 1))
+                                if min_girth_at_least_six(graph) && no_fold(graph) && no_pattern(graph)
                                     push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, 1))
                                 end
+                                remove_two_cell!(graph, i1, i2, j1, j2, two_cell_list)
                             end
 
                             if can_add_two_cell(graph, i1, i2, j1, j2, -1)
-                                child_graph = copy(graph)
-                                add_two_cell!(child_graph, i1, i2, j1, j2, -1)
-                                if min_girth_at_least_six(child_graph) && no_fold(child_graph) && no_pattern(child_graph)
+                                add_two_cell!(graph, i1, i2, j1, j2, -1)
+                                push!(two_cell_list, SVector{5, Int}(i1, i2, j1, j2, -1))
+                                if min_girth_at_least_six(graph) && no_fold(graph) && no_pattern(graph)
                                     push!(allowed_two_cells, SVector{5, Int}(i1, i2, j1, j2, -1))
                                 end
+                                remove_two_cell!(graph, i1, i2, j1, j2, two_cell_list)
                             end
                         end
                     end
@@ -1061,7 +1169,7 @@ function greedy_search_from_startpoint(db, obj::OBJ_TYPE)::Vector{OBJ_TYPE}
             add_two_cell!(graph, two_cell_choice[1], two_cell_choice[2], two_cell_choice[3], two_cell_choice[4], two_cell_choice[5])
             push!(two_cell_list, two_cell_choice)
             graph_str = convert_graph_to_string(graph)
-            num_two_cells = count(x -> x != 0, parse.(Int, split(graph_str, ",")))
+            num_two_cells = size(two_cell_list, 1)
         end
     end
 
@@ -1118,7 +1226,11 @@ function reward_calc(obj::OBJ_TYPE)::REWARD_TYPE
 
     In our case, calculates the number of 2-cells in the given taiko.
     """
-    return count(isequal('1'), obj)
+    if occursin("error", obj)
+        return -1
+    end
+
+    return count(isequal('('), obj)
 end
 
 
@@ -1127,7 +1239,7 @@ function empty_starting_point()::OBJ_TYPE
     If there is no input file, the search starts always with this object
     (E.g. empty graph, all zeros matrix, etc)
 
-    In our case, starts with trivial coloring.
+    In our case, starts with the empty partition.
     """
-    return chop("0," ^ Int((M*N)*(M-1)*(N-1)/2))
+    return ""
 end
